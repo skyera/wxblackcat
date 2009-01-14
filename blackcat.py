@@ -378,7 +378,7 @@ class ModelCanvas(glcanvas.GLCanvas):
 
         glMaterial(GL_FRONT, GL_SPECULAR, [0.9, 0.9, 0.9, 1.0])
         glMaterial(GL_FRONT, GL_SHININESS, 64)
-        glClearColor(0.0, 0.0, 0.4, 1.0)
+        glClearColor(0.0, 0.0, 0.0, 1.0)
 
     def createModelList(self):
         glNewList(self.modelList, GL_COMPILE)
@@ -397,7 +397,7 @@ class ControlPanel(wx.Panel):
     
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
-        self.SetBackgroundColour('gray')
+        #self.SetBackgroundColour('gray')
         self.createControls()
 
     def createControls(self):
