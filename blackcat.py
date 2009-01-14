@@ -314,13 +314,29 @@ class ModelCanvas(glcanvas.GLCanvas):
         glLoadIdentity()
 
         if w <= h:
-            glOrtho(self.minx - maxlen, self.maxx + maxlen, 
-                    (self.miny - maxlen)*float(h)/w, (self.maxy + maxlen)*float(h)/w, 
-                    self.minz + maxlen, self.maxz - maxlen)
+            factor = float(h) / w
+            left = self.minx - maxlen
+            right = self.maxx + maxlen
+            bottom = (self.miny - maxlen) * factor
+            top = (self.maxy + maxlen) * factor
+            near = self.minz + maxlen
+            far = self.maxz - maxlen
         else:
-            glOrtho((self.minx - maxlen)*float(w)/h, (self.maxx + maxlen)*float(w)/h,
-                     self.miny - maxlen, self.maxy + maxlen,
-                     self.minz + maxlen, self.maxz - maxlen)
+            factor = float(w) / h
+            left  = (self.minx - maxlen) * factor 
+            right = (self.maxx + maxlen) * factor
+            bottom = self.miny - maxlen 
+            top = self.maxy + maxlen
+            near = self.minz + maxlen 
+            far = self.maxz - maxlen
+        print left, right, bottom, top, near, far
+        left = -maxlen
+        right = maxlen
+        bottom = -maxlen
+        top = maxlen
+        near = 0
+        far = maxlen
+        glOrtho(left, right, bottom, top, near, far)    
 
     def initGL(self):
         self.SetCurrent()
@@ -356,7 +372,9 @@ class ModelCanvas(glcanvas.GLCanvas):
         
         if self.loaded:
             x, y, z = self.getModelCenter()
-            glTranslatef(-x, -y, -z)
+            glMatrixMode(GL_MODELVIEW)
+            glLoadIdentity()
+            glTranslatef(-x, -y, -z * 2)
             glBegin(GL_TRIANGLES)
             for facet in self.cadmodel.facets:
                 normal = facet.normal
