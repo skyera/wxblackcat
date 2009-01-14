@@ -225,6 +225,8 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.lastx = self.x = 30
         self.lasty = self.y = 30
         self.size = None
+        self.xangle = 0
+        self.yangle = 0
 
         self.minx = -1
         self.maxx = 1
@@ -274,8 +276,8 @@ class ModelCanvas(glcanvas.GLCanvas):
         x, y, z = self.getModelCenter()
         glTranslatef(0, 0, -self.maxz)
         # Rotate model
-        glRotatef(30, 1, 0, 0)
-        glRotatef(30, 0, 1, 1)
+        glRotatef(self.xangle, 1, 0, 0)
+        glRotatef(self.yangle, 0, 1, 1)
         
         # Move model to origin
         glTranslatef(-x, -y, -z)
@@ -293,6 +295,9 @@ class ModelCanvas(glcanvas.GLCanvas):
         if evt.Dragging() and evt.LeftIsDown():
             self.lastx, self.lasty = self.x, self.y
             self.x, self.y = evt.GetPosition()
+
+            self.xangle += (self.y - self.lasty)
+            self.yangle += (self.x - self.lastx)
             self.Refresh(False)
 
     def setModel(self, cadmodel):
@@ -312,6 +317,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.setupViewport()
         self.setupProjection()
         event.Skip()
+        self.Refresh()
     
     def setupViewport(self):
         size = self.GetClientSize()
