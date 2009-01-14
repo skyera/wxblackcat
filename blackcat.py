@@ -248,13 +248,13 @@ class ModelCanvas(glcanvas.GLCanvas):
         xlen = self.maxx - self.minx
         ylen = self.maxy - self.miny
         zlen = self.maxz - self.minz
-        return max([xlen, ylen, zlen])
+        maxlen = math.sqrt(math.pow(xlen, 2) + math.pow(ylen, 2) + math.pow(zlen, 2))
+        return maxlen
 
     def getModelCenter(self):
         x = (self.minx + self.maxx) / 2
         y = (self.miny + self.maxy) / 2
         z = (self.minz + self.maxz) / 2
-        print x, y, z
         return [x, y, z]
 
     def OnEraseBackground(self, event):
@@ -264,10 +264,23 @@ class ModelCanvas(glcanvas.GLCanvas):
         dc = wx.PaintDC(self)
         self.SetCurrent()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        self.showModel()
+        self.SwapBuffers()
+
+    def showModel(self):
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
+        
+        x, y, z = self.getModelCenter()
+        glTranslatef(0, 0, -self.maxz)
+        # Rotate model
+        glRotatef(30, 1, 0, 0)
+        glRotatef(30, 0, 1, 1)
+        
+        # Move model to origin
+        glTranslatef(-x, -y, -z)
+        
         glCallList(self.modelList)
-        self.SwapBuffers()
 
     def OnMouseDown(self, evt):
         self.CaptureMouse()
@@ -310,32 +323,24 @@ class ModelCanvas(glcanvas.GLCanvas):
         w = size.width
         h = size.height
         
+        half = maxlen / 2
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
 
         if w <= h:
             factor = float(h) / w
-            left = self.minx - maxlen
-            right = self.maxx + maxlen
-            bottom = (self.miny - maxlen) * factor
-            top = (self.maxy + maxlen) * factor
-            near = self.minz + maxlen
-            far = self.maxz - maxlen
+            left = -half
+            right = half
+            bottom = -half * factor
+            top = half * factor
         else:
             factor = float(w) / h
-            left  = (self.minx - maxlen) * factor 
-            right = (self.maxx + maxlen) * factor
-            bottom = self.miny - maxlen 
-            top = self.maxy + maxlen
-            near = self.minz + maxlen 
-            far = self.maxz - maxlen
-        print left, right, bottom, top, near, far
-        left = -maxlen
-        right = maxlen
-        bottom = -maxlen
-        top = maxlen
+            left  = -half * factor 
+            right = half * factor
+            bottom = -half
+            top = half
         near = 0
-        far = maxlen
+        far = maxlen * 2
         glOrtho(left, right, bottom, top, near, far)    
 
     def initGL(self):
@@ -344,6 +349,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.setupViewport()
         self.setupProjection()
         self.createModelList()
+        self.Refresh()
     
     def setupGLContext(self):
         glEnable(GL_DEPTH_TEST)
@@ -371,10 +377,6 @@ class ModelCanvas(glcanvas.GLCanvas):
         glNewList(self.modelList, GL_COMPILE)
         
         if self.loaded:
-            x, y, z = self.getModelCenter()
-            glMatrixMode(GL_MODELVIEW)
-            glLoadIdentity()
-            glTranslatef(-x, -y, -z * 2)
             glBegin(GL_TRIANGLES)
             for facet in self.cadmodel.facets:
                 normal = facet.normal
