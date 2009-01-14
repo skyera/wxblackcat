@@ -251,6 +251,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         ylen = self.maxy - self.miny
         zlen = self.maxz - self.minz
         maxlen = math.sqrt(math.pow(xlen, 2) + math.pow(ylen, 2) + math.pow(zlen, 2))
+        self.maxlen = maxlen
         return maxlen
 
     def getModelCenter(self):
@@ -274,7 +275,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glLoadIdentity()
         
         x, y, z = self.getModelCenter()
-        glTranslatef(0, 0, -self.maxz)
+        glTranslatef(0, 0, -self.maxlen)
         # Rotate model
         glRotatef(self.xangle, 1, 0, 0)
         glRotatef(self.yangle, 0, 1, 1)
