@@ -44,31 +44,6 @@ class Facet:
 
     def __str__(self):
         return 'normal:' + str(self.normal) + ' points:' + str(self.points)
-    
-    def calc(self):
-        point0 = self.points[0]
-        point1 = self.points[1]
-        point2 = self.points[2]
-        
-        if point0 == point1 or point0 == point2 or point1 == point2:
-            return
-
-        vx = point0.x - point1.x
-        vy = point0.y - point1.y
-        vz = point0.z - point1.z
-
-        wx = point1.x - point2.x
-        wy = point1.y - point2.y
-        wz = point1.z - point2.z
-
-        length = math.sqrt(math.pow(nx, 2) + math.pow(ny, 2) + math.pow(nz, ))
-        if length < 0.0001:
-            length = 1.0
-
-        self.normal2 = Point()
-        self.normal2.x = nx/length
-        self.normal2.y = ny/length
-        self.normal2.z = nz/length
 
 class CadModel:
     def __init__(self):
