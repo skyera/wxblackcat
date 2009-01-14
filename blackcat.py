@@ -225,6 +225,14 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.lastx = self.x = 30
         self.lasty = self.y = 30
         self.size = None
+
+        self.minx = -1
+        self.maxx = 1
+        self.miny = -1
+        self.maxy = 1
+        self.minz = 0
+        self.maxz = 1
+
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
@@ -233,16 +241,33 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.Bind(wx.EVT_MOTION, self.OnMouseMotion)
         self.loaded = False
 
+        self.modelList = 1000
+        self.initGL()
+    
+    def getMaxLen(self):
+        xlen = self.maxx - self.minx
+        ylen = self.maxy - self.miny
+        zlen = self.maxz - self.minz
+        return max([xlen, ylen, zlen])
+
+    def getModelCenter(self):
+        x = (self.minx + self.maxx) / 2
+        y = (self.miny + self.maxy) / 2
+        z = (self.minz + self.maxz) / 2
+        print x, y, z
+        return [x, y, z]
+
     def OnEraseBackground(self, event):
         pass # Do nothing, to avoid flashing on MSW.
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
         self.SetCurrent()
-        if not self.init:
-            self.InitGL()
-            self.init = True
-        self.OnDraw()
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        glCallList(self.modelList)
+        self.SwapBuffers()
 
     def OnMouseDown(self, evt):
         self.CaptureMouse()
@@ -253,61 +278,58 @@ class ModelCanvas(glcanvas.GLCanvas):
 
     def OnMouseMotion(self, evt):
         if evt.Dragging() and evt.LeftIsDown():
-            print 'mov'
             self.lastx, self.lasty = self.x, self.y
             self.x, self.y = evt.GetPosition()
             self.Refresh(False)
 
-    def resize(self):
-        self.size = size = self.GetClientSize()
-        self.SetCurrent()
-        w = size.width
-        h = size.height
-        glViewport(0, 0, size.width, size.height)
-        if self.loaded:
-            minx = self.cadmodel.minx
-            maxx = self.cadmodel.maxx
-            miny = self.cadmodel.miny
-            maxy = self.cadmodel.maxy
-            minz = self.cadmodel.minz
-            maxz = self.cadmodel.maxz
-
-            xlen = maxx - minx
-            ylen = maxy - miny
-            zlen = maxz - minz
-            maxlen = max([xlen, ylen, zlen])
-
-            glMatrixMode(GL_PROJECTION)
-            glLoadIdentity()
-            if w <= h:
-                glOrtho(minx - maxlen, maxx + maxlen, 
-                        (miny - maxlen)*float(h)/w, (maxy + maxlen)*float(h)/w, 
-                        minz + maxlen, maxz - maxlen)
-            else:
-                glOrtho((minx - maxlen)*float(w)/h, (maxx + maxlen)*float(w)/h,
-                        miny - maxlen, maxy + maxlen,
-                        minz + maxlen, maxz - maxlen)
-            
-            glMatrixMode(GL_MODELVIEW)
-            glLoadIdentity()
+    def setModel(self, cadmodel):
+        self.cadmodel = cadmodel
+        
+        self.minx = self.cadmodel.minx
+        self.maxx = self.cadmodel.maxx
+        self.miny = self.cadmodel.miny
+        self.maxy = self.cadmodel.maxy
+        self.minz = self.cadmodel.minz
+        self.maxz = self.cadmodel.maxz 
+        self.loaded = True
+        self.initGL()
 
     def OnSize(self, event):
-        self.resize()
+        self.SetCurrent()
+        self.setupViewport()
+        self.setupProjection()
         event.Skip()
+    
+    def setupViewport(self):
+        size = self.GetClientSize()
+        glViewport(0, 0, size.width, size.height)
 
-    def InitGL(self):
-        # set viewing projection
+    def setupProjection(self):
+        maxlen = self.getMaxLen()
+        size = self.GetClientSize()
+        w = size.width
+        h = size.height
+        
         glMatrixMode(GL_PROJECTION)
-        glFrustum(-0.5, 0.5, -0.5, 0.5, 1.0, 3.0)
+        glLoadIdentity()
 
-        # position viewer
-        glMatrixMode(GL_MODELVIEW)
-        glTranslatef(0.0, 0.0, -2.0)
+        if w <= h:
+            glOrtho(self.minx - maxlen, self.maxx + maxlen, 
+                    (self.miny - maxlen)*float(h)/w, (self.maxy + maxlen)*float(h)/w, 
+                    self.minz + maxlen, self.maxz - maxlen)
+        else:
+            glOrtho((self.minx - maxlen)*float(w)/h, (self.maxx + maxlen)*float(w)/h,
+                     self.miny - maxlen, self.maxy + maxlen,
+                     self.minz + maxlen, self.maxz - maxlen)
 
-        # position object
-        glRotatef(self.y, 1.0, 0.0, 0.0)
-        glRotatef(self.x, 0.0, 1.0, 0.0)
-
+    def initGL(self):
+        self.SetCurrent()
+        self.setupGLContext()
+        self.setupViewport()
+        self.setupProjection()
+        self.createModelList()
+    
+    def setupGLContext(self):
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_LIGHTING)
         glEnable(GL_CULL_FACE)
@@ -329,10 +351,12 @@ class ModelCanvas(glcanvas.GLCanvas):
         glMaterial(GL_FRONT, GL_SHININESS, 64)
         glClearColor(0.0, 0.0, 0.4, 1.0)
 
-    def OnDraw(self):
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    def createModelList(self):
+        glNewList(self.modelList, GL_COMPILE)
         
         if self.loaded:
+            x, y, z = self.getModelCenter()
+            glTranslatef(-x, -y, -z)
             glBegin(GL_TRIANGLES)
             for facet in self.cadmodel.facets:
                 normal = facet.normal
@@ -340,19 +364,7 @@ class ModelCanvas(glcanvas.GLCanvas):
                 for point in facet.points:
                     glVertex3f(point.x, point.y, point.z)
             glEnd()
-
-        if self.size is None:
-            self.size = self.GetClientSize()
-
-        w, h = self.size
-        w = max(w, 1.0)
-        h = max(h, 1.0)
-        xScale = 180.0 / w
-        yScale = 180.0 / h
-        glRotatef((self.y - self.lasty) * yScale, 1.0, 0.0, 0.0);
-        glRotatef((self.x - self.lastx) * xScale, 0.0, 1.0, 0.0);
-
-        self.SwapBuffers()
+        glEndList()
 
 class ControlPanel(wx.Panel):
     
@@ -438,9 +450,7 @@ class BlackCatFrame(wx.Frame):
             self.statusbar.SetStatusText(path)
             ok = self.cadmodel.open(path)
             if ok:
-                self.modelcanvas.cadmodel = self.cadmodel
-                self.modelcanvas.loaded = True
-                self.rightPanel.Refresh()
+                self.modelcanvas.setModel(self.cadmodel)
         dlg.Destroy()
 
     def OnSlice(self, event):
