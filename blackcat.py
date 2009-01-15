@@ -457,11 +457,17 @@ class BlackCatFrame(wx.Frame):
         dlg.Destroy()
 
     def OnSlice(self, event):
-        pass
+        dlg = ParaDialog()
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def OnQuit(self, event):
         pass
 
+class ParaDialog(wx.Dialog):
+
+    def __init__(self):
+        wx.Dialog.__init__(self, None, -1, "Slice parameters", size=(200, 200))
 if __name__ == '__main__':
     app = wx.PySimpleApp()
     BlackCatFrame().Show()
