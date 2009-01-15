@@ -219,14 +219,13 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.loaded = False
 
         self.modelList = 1000
-        self.initGL()
-    
+        #self.initGL()
+
     def getMaxLen(self):
         xlen = self.maxx - self.minx
         ylen = self.maxy - self.miny
         zlen = self.maxz - self.minz
         maxlen = math.sqrt(math.pow(xlen, 2) + math.pow(ylen, 2) + math.pow(zlen, 2))
-        self.maxlen = maxlen
         return maxlen
 
     def getModelCenter(self):
@@ -246,9 +245,14 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.SwapBuffers()
 
     def showModel(self):
+        if not self.loaded:
+            return
+        
+        self.setupViewport()
+        self.setupProjection()
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
-        
+         
         x, y, z = self.getModelCenter()
         glTranslatef(0, 0, -self.maxlen)
         # Rotate model
@@ -289,18 +293,15 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.initGL()
 
     def OnSize(self, event):
-        self.SetCurrent()
-        self.setupViewport()
-        self.setupProjection()
+        self.Refresh(False)
         event.Skip()
-        self.Refresh()
     
     def setupViewport(self):
         size = self.GetClientSize()
         glViewport(0, 0, size.width, size.height)
 
     def setupProjection(self):
-        maxlen = self.getMaxLen()
+        self.maxlen = maxlen = self.getMaxLen()
         size = self.GetClientSize()
         w = size.width
         h = size.height
@@ -334,18 +335,19 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.Refresh()
     
     def setupGLContext(self):
+        self.SetCurrent()
         glEnable(GL_DEPTH_TEST)
-        glEnable(GL_LIGHTING)
         glEnable(GL_CULL_FACE)
         glShadeModel(GL_FLAT)
         glPolygonMode(GL_BACK, GL_LINE)
-
+        
         # light0
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
         glLight(GL_LIGHT0, GL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
         glLight(GL_LIGHT0, GL_DIFFUSE, [0.7, 0.7, 0.7, 1.0])
         glLight(GL_LIGHT0, GL_SPECULAR, [0.9, 0.9, 0.9, 1.0])
         glLight(GL_LIGHT0, GL_POSITION, [-50.0, 200.0, 200.0, 1.0])
+        glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
 
         glEnable(GL_COLOR_MATERIAL)
@@ -357,7 +359,6 @@ class ModelCanvas(glcanvas.GLCanvas):
 
     def createModelList(self):
         glNewList(self.modelList, GL_COMPILE)
-        
         if self.loaded:
             glBegin(GL_TRIANGLES)
             for facet in self.cadmodel.facets:
