@@ -468,6 +468,22 @@ class ParaDialog(wx.Dialog):
 
     def __init__(self):
         wx.Dialog.__init__(self, None, -1, "Slice parameters", size=(200, 200))
+        self.createControls()
+
+    def createControls(self):
+        labels = ["Layer height", "Pitch", "Scanning speed", "Fast speed"]
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        box = wx.GridSizer(rows=3, cols=2, hgap=5, vgap=5)
+        for label in labels:
+            lbl = wx.StaticText(self, label=label)
+            box.Add(lbl, 0, 0)
+
+            txt = wx.TextCtrl(self, -1, size=(80, -1))
+            box.Add(txt, 0, 0)
+        sizer.Add(box, 0, 0)
+        self.SetSizer(sizer)
+
 if __name__ == '__main__':
     app = wx.PySimpleApp()
     BlackCatFrame().Show()
