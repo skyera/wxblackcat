@@ -530,7 +530,7 @@ class ParaDialog(wx.Dialog):
         btnSizer = wx.BoxSizer(wx.HORIZONTAL)
         btnSizer.Add((10, 10), 1)
         okBtn = wx.Button(self, wx.ID_OK, "OK")
-        cancelBtn = wx.Button(self, wx.ID_CANCEL "Cancel")
+        cancelBtn = wx.Button(self, wx.ID_CANCEL, "Cancel")
         btnSizer.Add(okBtn)
         btnSizer.Add((10,10), 1)
         btnSizer.Add(cancelBtn)
