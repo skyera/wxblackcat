@@ -270,7 +270,8 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.x, self.y = self.lastx, self.lasty = evt.GetPosition()
 
     def OnMouseUp(self, evt):
-        self.ReleaseMouse()
+        if self.HasCapture():
+            self.ReleaseMouse()
 
     def OnMouseMotion(self, evt):
         if evt.Dragging() and evt.LeftIsDown():
@@ -328,10 +329,12 @@ class ModelCanvas(glcanvas.GLCanvas):
         glOrtho(left, right, bottom, top, near, far)    
 
     def initGL(self):
+        self.xangle = 0
+        self.yangle = 0
         self.SetCurrent()
         self.setupGLContext()
-        self.setupViewport()
-        self.setupProjection()
+        #self.setupViewport()
+        #self.setupProjection()
         self.createModelList()
         self.Refresh()
     
