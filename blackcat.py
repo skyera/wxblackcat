@@ -467,22 +467,52 @@ class BlackCatFrame(wx.Frame):
 class ParaDialog(wx.Dialog):
 
     def __init__(self):
-        wx.Dialog.__init__(self, None, -1, "Slice parameters", size=(200, 200))
+        wx.Dialog.__init__(self, None, -1, "Slice parameters")#, size=(200, 200))
         self.createControls()
 
-    def createControls(self):
-        labels = ["Layer height", "Pitch", "Scanning speed", "Fast speed"]
 
+    def createControls(self):
+        labels = [("Layer height", "0.43"), ("Pitch", "0.38"), ("Scanning speed", "20"), ("Fast speed", "20")]
+        
+        outsizer = wx.BoxSizer(wx.VERTICAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        box = wx.GridSizer(rows=3, cols=2, hgap=5, vgap=5)
-        for label in labels:
+        outsizer.Add(sizer, 0, wx.ALL, 10)
+        box = wx.FlexGridSizer(rows=3, cols=2, hgap=5, vgap=5)
+        for label, value in labels:
             lbl = wx.StaticText(self, label=label)
             box.Add(lbl, 0, 0)
 
-            txt = wx.TextCtrl(self, -1, size=(80, -1))
+            txt = wx.TextCtrl(self, -1, value, size=(80, -1))
             box.Add(txt, 0, 0)
         sizer.Add(box, 0, 0)
-        self.SetSizer(sizer)
+        
+        lbl = wx.StaticText(self, label="Slicing direction")
+        box.Add(lbl, 0, 0)
+
+        dirList = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
+        dirChoice = wx.Choice(self, -1, (160, -1), choices=dirList)
+        dirChoice.SetSelection(4)
+        box.Add(dirChoice, 0, wx.EXPAND)
+
+        lbl = wx.StaticText(self, label="Scale factor")
+        box.Add(lbl, 0, 0)
+        scaleTxt = wx.TextCtrl(self, -1, "1.0", size=(80, -1))
+        box.Add(scaleTxt, 0, wx.EXPAND)
+        
+        sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
+        #
+        btnSizer = wx.BoxSizer(wx.HORIZONTAL)
+        btnSizer.Add((10, 10), 1)
+        okBtn = wx.Button(self, -1, "OK")
+        cancelBtn = wx.Button(self, -1, "Cancel")
+        btnSizer.Add(okBtn)
+        btnSizer.Add((10,10), 1)
+        btnSizer.Add(cancelBtn)
+        btnSizer.Add((10,10), 1)
+        sizer.Add(btnSizer, 0, wx.EXPAND|wx.ALL, 10)
+
+        self.SetSizer(outsizer)
+        self.Fit()
 
 if __name__ == '__main__':
     app = wx.PySimpleApp()
