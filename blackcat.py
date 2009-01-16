@@ -1,6 +1,7 @@
 import wx
 import os
 import sys
+import string
 
 try:
     from wx import glcanvas
@@ -464,6 +465,30 @@ class BlackCatFrame(wx.Frame):
     def OnQuit(self, event):
         pass
 
+class CharValidator(wx.PyValidator):
+
+    def __init__(self):
+        wx.PyValidator.__init__(self)
+        self.Bind(wx.EVT_CHAR, self.OnChar)
+
+    def Clone(self):
+        return CharValidator()
+    
+    def Validator(self, win):
+        return True
+    
+    def TransferToWindow(self):
+        return True
+
+    def TransferFromWindow(self):
+        return True
+    
+    def OnChar(self, event):
+        key = chr(event.GetKeyCode())
+        if key in string.letters:
+            return
+        event.Skip()
+
 class ParaDialog(wx.Dialog):
 
     def __init__(self):
@@ -482,7 +507,7 @@ class ParaDialog(wx.Dialog):
             lbl = wx.StaticText(self, label=label)
             box.Add(lbl, 0, 0)
 
-            txt = wx.TextCtrl(self, -1, value, size=(80, -1))
+            txt = wx.TextCtrl(self, -1, value, size=(80, -1), validator=CharValidator())
             box.Add(txt, 0, 0)
         sizer.Add(box, 0, 0)
         
@@ -496,7 +521,7 @@ class ParaDialog(wx.Dialog):
 
         lbl = wx.StaticText(self, label="Scale factor")
         box.Add(lbl, 0, 0)
-        scaleTxt = wx.TextCtrl(self, -1, "1.0", size=(80, -1))
+        scaleTxt = wx.TextCtrl(self, -1, "1.0", size=(80, -1), validator=CharValidator())
         box.Add(scaleTxt, 0, wx.EXPAND)
         
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
