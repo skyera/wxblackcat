@@ -357,7 +357,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glEnable(GL_COLOR_MATERIAL)
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
 
-        glMaterial(GL_FRONT, GL_SPECULAR, [0.9, 0.9, 0.9, 1.0])
+        glMaterial(GL_FRONT, GL_SPECULAR, [0.0, 0.8, 0.0, 1.0])
         glMaterial(GL_FRONT, GL_SHININESS, 64)
         glClearColor(0.0, 0.0, 0.0, 1.0)
 
@@ -464,7 +464,7 @@ class BlackCatFrame(wx.Frame):
         dlg = ParaDialog(self)
         result = dlg.ShowModal()
         if result == wx.ID_OK:
-            print 'OK'
+            print dlg.data
         else:
             print 'Cancel'
         dlg.Destroy()
@@ -474,12 +474,14 @@ class BlackCatFrame(wx.Frame):
 
 class CharValidator(wx.PyValidator):
 
-    def __init__(self):
+    def __init__(self, data, key):
         wx.PyValidator.__init__(self)
         self.Bind(wx.EVT_CHAR, self.OnChar)
+        self.data = data
+        self.key = key
 
     def Clone(self):
-        return CharValidator()
+        return CharValidator(self.data, self.key)
     
     def Validate(self, win):
         return True
@@ -488,6 +490,8 @@ class CharValidator(wx.PyValidator):
         return True
 
     def TransferFromWindow(self):
+        textCtrl = self.GetWindow()
+        self.data[self.key] = textCtrl.GetValue()
         return True
     
     def OnChar(self, event):
@@ -500,11 +504,18 @@ class ParaDialog(wx.Dialog):
 
     def __init__(self, parent):
         wx.Dialog.__init__(self, parent, -1, "Slice parameters", size=(200, 200))
+        self.height = "Layer height"
+        self.pitch = "Pitch"
+        self.scanSpeed = "Scanning speed"
+        self.fastSpeed = "Fast speed"
+        self.scale = "Scale factor"
+        self.slicedir = "Slicing direction"
+        self.data = {}
         self.createControls()
 
 
     def createControls(self):
-        labels = [("Layer height", "0.43"), ("Pitch", "0.38"), ("Scanning speed", "20"), ("Fast speed", "20")]
+        labels = [(self.height, "0.43"), (self.pitch, "0.38"), (self.scanSpeed, "20"), (self.fastSpeed, "20")]
         
         outsizer = wx.BoxSizer(wx.VERTICAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -514,21 +525,21 @@ class ParaDialog(wx.Dialog):
             lbl = wx.StaticText(self, label=label)
             box.Add(lbl, 0, 0)
 
-            txt = wx.TextCtrl(self, -1, value, size=(80, -1), validator=CharValidator())
+            txt = wx.TextCtrl(self, -1, value, size=(80, -1), validator=CharValidator(self.data, label))
             box.Add(txt, 0, 0)
         sizer.Add(box, 0, 0)
         
-        lbl = wx.StaticText(self, label="Slicing direction")
+        lbl = wx.StaticText(self, label=self.slicedir)
         box.Add(lbl, 0, 0)
 
         dirList = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
         dirChoice = wx.Choice(self, -1, (160, -1), choices=dirList)
         dirChoice.SetSelection(4)
         box.Add(dirChoice, 0, wx.EXPAND)
-
-        lbl = wx.StaticText(self, label="Scale factor")
+        
+        lbl = wx.StaticText(self, label=self.scale)
         box.Add(lbl, 0, 0)
-        scaleTxt = wx.TextCtrl(self, -1, "1.0", size=(80, -1), validator=CharValidator())
+        scaleTxt = wx.TextCtrl(self, -1, "1.0", size=(80, -1), validator=CharValidator(self.data, self.scale))
         box.Add(scaleTxt, 0, wx.EXPAND)
         
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
