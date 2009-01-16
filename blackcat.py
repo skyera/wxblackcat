@@ -458,8 +458,12 @@ class BlackCatFrame(wx.Frame):
         dlg.Destroy()
 
     def OnSlice(self, event):
-        dlg = ParaDialog()
-        dlg.ShowModal()
+        dlg = ParaDialog(self)
+        result = dlg.ShowModal()
+        if result == wx.ID_OK:
+            print 'OK'
+        else:
+            print 'Cancel'
         dlg.Destroy()
 
     def OnQuit(self, event):
@@ -474,7 +478,7 @@ class CharValidator(wx.PyValidator):
     def Clone(self):
         return CharValidator()
     
-    def Validator(self, win):
+    def Validate(self, win):
         return True
     
     def TransferToWindow(self):
@@ -491,8 +495,8 @@ class CharValidator(wx.PyValidator):
 
 class ParaDialog(wx.Dialog):
 
-    def __init__(self):
-        wx.Dialog.__init__(self, None, -1, "Slice parameters")#, size=(200, 200))
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent, -1, "Slice parameters", size=(200, 200))
         self.createControls()
 
 
@@ -529,7 +533,8 @@ class ParaDialog(wx.Dialog):
         #
         btnSizer = wx.BoxSizer(wx.HORIZONTAL)
         btnSizer.Add((10, 10), 1)
-        okBtn = wx.Button(self, wx.ID_OK, "OK")
+        okBtn = wx.Button(self, wx.ID_OK)
+        okBtn.SetDefault()
         cancelBtn = wx.Button(self, wx.ID_CANCEL, "Cancel")
         btnSizer.Add(okBtn)
         btnSizer.Add((10,10), 1)
