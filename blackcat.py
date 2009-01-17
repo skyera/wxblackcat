@@ -413,6 +413,7 @@ class BlackCatFrame(wx.Frame):
         self.cadmodel = CadModel()
         self.statusbar = self.CreateStatusBar()
         self.createPanel()
+        self.Centre()
 
     def createPanel(self):
         leftPanel = ControlPanel(self)
