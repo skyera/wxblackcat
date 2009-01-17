@@ -357,7 +357,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glEnable(GL_COLOR_MATERIAL)
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
 
-        glMaterial(GL_FRONT, GL_SPECULAR, [0.0, 0.8, 0.0, 1.0])
+        #glMaterial(GL_FRONT, GL_SPECULAR, [0.9, 0.9, 0.9, 1.0])
         glMaterial(GL_FRONT, GL_SHININESS, 64)
         glClearColor(0.0, 0.0, 0.0, 1.0)
 
