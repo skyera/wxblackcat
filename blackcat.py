@@ -338,6 +338,23 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.createModelList()
         self.Refresh()
     
+    def setupGLContext2(self):
+        self.SetCurrent()
+        glMaterial(GL_FRONT, GL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
+        glMaterial(GL_FRONT, GL_DIFFUSE, [0.8, 0.8, 0.8, 1.0])
+        glMaterial(GL_FRONT, GL_SPECULAR, [1.0, 0.0, 1.0, 1.0])
+        glMaterial(GL_FRONT, GL_SHININESS, 50.0)
+        glLight(GL_LIGHT0, GL_AMBIENT, [0.0, 1.0, 0.0, 1.0])
+        glLight(GL_LIGHT0, GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0])
+        glLight(GL_LIGHT0, GL_SPECULAR, [1.0, 1.0, 1.0, 1.0])
+        glLight(GL_LIGHT0, GL_POSITION, [1.0, 1.0, 1.0, 0.0])
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
+        glEnable(GL_LIGHTING)
+        glEnable(GL_LIGHT0)
+        glDepthFunc(GL_LESS)
+        glEnable(GL_DEPTH_TEST)
+        glClearColor(0.0, 0.0, 0.0, 1.0)
+
     def setupGLContext(self):
         self.SetCurrent()
         glEnable(GL_DEPTH_TEST)
@@ -345,20 +362,22 @@ class ModelCanvas(glcanvas.GLCanvas):
         glShadeModel(GL_FLAT)
         glPolygonMode(GL_BACK, GL_LINE)
         
+        maxlen = self.getMaxLen()
+
         # light0
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
         glLight(GL_LIGHT0, GL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
         glLight(GL_LIGHT0, GL_DIFFUSE, [0.7, 0.7, 0.7, 1.0])
-        glLight(GL_LIGHT0, GL_SPECULAR, [0.9, 0.9, 0.9, 1.0])
+        glLight(GL_LIGHT0, GL_SPECULAR, [0.6, 0.6, 0.6, 1.0])
         glLight(GL_LIGHT0, GL_POSITION, [-50.0, 200.0, 200.0, 1.0])
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
 
-        #glEnable(GL_COLOR_MATERIAL)
-        #glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
+        glEnable(GL_COLOR_MATERIAL)
+        glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
 
-        #glMaterial(GL_FRONT, GL_SPECULAR, [0.9, 0.9, 0.9, 1.0])
-        glMaterial(GL_FRONT, GL_SHININESS, 64)
+        glMaterial(GL_FRONT, GL_SPECULAR, [0.2, 0.2, 0.2, 1.0])
+        #glMaterial(GL_FRONT, GL_SHININESS, 64)
         glClearColor(0.0, 0.0, 0.0, 1.0)
 
     def createModelList(self):
