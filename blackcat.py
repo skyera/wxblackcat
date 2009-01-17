@@ -406,7 +406,7 @@ class ModelCanvas(glcanvas.GLCanvas):
     def createModelList(self):
         glNewList(self.modelList, GL_COMPILE)
         if self.loaded:
-            glColor(0, 0, 1)
+            glColor(1, 0, 0)
             glBegin(GL_TRIANGLES)
             for facet in self.cadmodel.facets:
                 normal = facet.normal
