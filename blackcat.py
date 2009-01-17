@@ -353,21 +353,45 @@ class ModelCanvas(glcanvas.GLCanvas):
         glDepthFunc(GL_LESS)
         glEnable(GL_DEPTH_TEST)
         glClearColor(0.0, 0.0, 0.0, 1.0)
-
+    
     def setupGLContext(self):
+        glEnable(GL_LIGHTING);
+        glEnable(GL_LIGHT0);
+
+        ambientLight = [ 0.2, 0.2, 0.2, 1.0 ]
+        diffuseLight = [ 0.8, 0.8, 0.8, 1.0 ]
+        specularLight = [ 0.5, 0.5, 0.5, 1.0 ]
+        position = [ -1.5, 1.0, -4.0, 1.0 ]
+
+        glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
+        glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
+        glLightfv(GL_LIGHT0, GL_POSITION, position);
+
+        mcolor = [ 0.0, 0.0, 1.0, 1.0]
+        glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, mcolor)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_CULL_FACE)
+        glPolygonMode(GL_BACK, GL_LINE)
+        glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
+        glEnable(GL_COLOR_MATERIAL)
+
+    def setupGLContext_1(self):
         self.SetCurrent()
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_CULL_FACE)
-        glShadeModel(GL_FLAT)
+        #glShadeModel(GL_FLAT)
+        glShadeModel(GL_SMOOTH)
         glPolygonMode(GL_BACK, GL_LINE)
         
         maxlen = self.getMaxLen()
 
         # light0
-        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
-        glLight(GL_LIGHT0, GL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.4, 0.4, 0.9, 1.0])
+        #glLight(GL_LIGHT0, GL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
+        glLight(GL_LIGHT0, GL_AMBIENT, [1.0, 1.0, 1.0, 1.0])
         glLight(GL_LIGHT0, GL_DIFFUSE, [0.7, 0.7, 0.7, 1.0])
-        glLight(GL_LIGHT0, GL_SPECULAR, [0.6, 0.6, 0.6, 1.0])
+        glLight(GL_LIGHT0, GL_SPECULAR, [1.0, 1.0, 1.0, 1.0])
         glLight(GL_LIGHT0, GL_POSITION, [-50.0, 200.0, 200.0, 1.0])
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
@@ -382,6 +406,7 @@ class ModelCanvas(glcanvas.GLCanvas):
     def createModelList(self):
         glNewList(self.modelList, GL_COMPILE)
         if self.loaded:
+            glColor(0, 0, 1)
             glBegin(GL_TRIANGLES)
             for facet in self.cadmodel.facets:
                 normal = facet.normal
