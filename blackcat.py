@@ -248,7 +248,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         if not self.loaded:
             return
         
-        self.setupViewport()
+        #self.setupViewport()
         self.setupProjection()
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
@@ -294,6 +294,9 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.initGL()
 
     def OnSize(self, event):
+        if self.GetContext():
+            self.SetCurrent()
+            self.setupViewport()
         self.Refresh(False)
         event.Skip()
     
@@ -375,6 +378,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glPolygonMode(GL_BACK, GL_LINE)
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
         glEnable(GL_COLOR_MATERIAL)
+        glMaterial(GL_FRONT, GL_SHININESS, 96)
 
     def setupGLContext_1(self):
         self.SetCurrent()
