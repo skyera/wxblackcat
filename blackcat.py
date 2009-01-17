@@ -381,19 +381,22 @@ class ControlPanel(wx.Panel):
         self.createControls()
 
     def createControls(self):
+        mainsizer = wx.BoxSizer(wx.VERTICAL)
+        
         sizer = wx.BoxSizer(wx.VERTICAL)
         lbl = wx.StaticText(self, -1, "Information")
         sizer.Add(lbl)
         sizer.Add(wx.StaticLine(self, -1), 0, wx.EXPAND)
         #box.Add(wx.Button(self, -1, "hi"))
-        self.SetSizer(sizer)
+        mainsizer.Add(sizer, 0, wx.ALL, 10)
+        self.SetSizer(mainsizer)
         s = self.makeDimensionBox()
         sizer.Add(s)
     
     def makeDimensionBox(self):
         box = wx.StaticBox(self, -1, "Dimension")
         boxsizer = wx.StaticBoxSizer(box, wx.VERTICAL)
-        flex = wx.FlexGridSizer(rows=3, cols=2, hgap=5, vgap=5)
+        flex = wx.FlexGridSizer(rows=3, cols=2, hgap=2, vgap=2)
         for label in ("Height", "Width", "Length"):
             lbl = wx.StaticText(self, -1, label=label)
             txt = wx.TextCtrl(self, -1, size=(90,-1))
