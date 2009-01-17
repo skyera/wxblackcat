@@ -460,8 +460,19 @@ class BlackCatFrame(wx.Frame):
         return (("&File", ("&Open", "Open CAD file", self.OnOpen),
                          ("&Slice", "Slice CAD model", self.OnSlice),
                          ("", "", ""),
-                         ("&Quit", "Quit", self.OnQuit)),)
+                         ("&Quit", "Quit", self.OnQuit)),
+                ("&Help", ("&About", "About this program", self.OnAbout))
+                 )
     
+    def OnAbout(self, event):
+        info = wx.AboutDialogInfo()
+        info.Name = "Black Cat"
+        info.Version = "0.1"
+        info.Copyright = "(C) 2009"
+        info.Description = "Slice CAD model"
+        info.Developers = ["Zhigang Liu"]
+        wx.AboutBox(info)
+
     def createMenu(self, menuData):
         menu = wx.Menu()
         for label, status, handler in menuData:
