@@ -220,7 +220,6 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.loaded = False
 
         self.modelList = 1000
-        #self.initGL()
 
     def getMaxLen(self):
         xlen = self.maxx - self.minx
