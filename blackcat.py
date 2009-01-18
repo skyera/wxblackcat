@@ -220,12 +220,14 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.loaded = False
 
         self.modelList = 1000
+        self.getMaxLen()
 
     def getMaxLen(self):
         xlen = self.maxx - self.minx
         ylen = self.maxy - self.miny
         zlen = self.maxz - self.minz
         maxlen = math.sqrt(math.pow(xlen, 2) + math.pow(ylen, 2) + math.pow(zlen, 2))
+        self.maxlen = maxlen
         return maxlen
 
     def getModelCenter(self):
@@ -292,6 +294,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.maxz = self.cadmodel.maxz 
         self.loaded = True
         self.initGL()
+        self.getMaxLen()
 
     def OnSize(self, event):
         if self.GetContext():
@@ -305,7 +308,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glViewport(0, 0, size.width, size.height)
 
     def setupProjection(self):
-        self.maxlen = maxlen = self.getMaxLen()
+        maxlen = self.maxlen
         size = self.GetClientSize()
         w = size.width
         h = size.height
