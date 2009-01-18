@@ -2,6 +2,7 @@ import wx
 import os
 import sys
 import string
+import copy
 
 try:
     from wx import glcanvas
@@ -35,7 +36,7 @@ class Point:
         self.z = 0.0
 
     def __str__(self):
-        s = '(%s, %s, %s)' % (self.x, self.y, self.z)
+        s = '(%f, %f, %f) ' % (self.x, self.y, self.z)
         return s
 
 class Facet:
@@ -44,8 +45,11 @@ class Facet:
         self.points = (Point(), Point(), Point())
 
     def __str__(self):
-        return 'normal:' + str(self.normal) + ' points:' + str(self.points)
-
+        s = 'normal: ' + str(self.normal)
+        s += ' points:'
+        for p in self.points:
+            s += str(p)
+        return s
 class CadModel:
     def __init__(self):
         self.initLogger()
@@ -188,9 +192,35 @@ class CadModel:
         if self.loaded:
             self.getDimension()
             self.logger.debug("no of facets:" + str(len(self.facets)))
+            self.oldfacets = copy.deepcopy(self.facets)
             return True
         else:
             return False
+
+    def slice(self, para):
+        self.height = para["height"]
+        self.pitch = para["pitch"]
+        self.speed = para["speed"]
+        self.fast = para["fast"]
+        self.direction = para["direction"]
+        self.scale = para["scale"]
+        print para
+        self.scaleModel(self.scale)
+        self.getDimension()
+    
+    def scaleModel(self, factor):
+        factor = float(factor)
+        self.facets = []
+        for facet in self.oldfacets:
+            nfacet = copy.deepcopy(facet)
+            ps = []
+            for p in nfacet.points:
+                p.x *= factor
+                p.y *= factor
+                p.z *= factor
+                ps.append(p)
+            nfacet.points = ps
+            self.facets.append(nfacet)
         
 class ModelCanvas(glcanvas.GLCanvas):
 
@@ -530,13 +560,8 @@ class BlackCatFrame(wx.Frame):
         result = dlg.ShowModal()
         if result == wx.ID_OK:
             data =  dlg.getValues()
-            height = data["height"]
-            pitch = data["pitch"]
-            speed = data["speed"]
-            fast = data["fast"]
-            scale = data["scale"]
-            direction = data["direction"]
-            print data
+            self.cadmodel.slice(data)
+            self.modelcanvas.setModel(self.cadmodel)
         else:
             print 'Cancel'
         dlg.Destroy()
@@ -617,7 +642,7 @@ class ParaDialog(wx.Dialog):
         # scale
         lbl = wx.StaticText(self, label="Scale factor")
         box.Add(lbl, 0, 0)
-        scaleTxt = wx.TextCtrl(self, -1, "1.0", size=(80, -1), validator=CharValidator(self.data, "scale"))
+        scaleTxt = wx.TextCtrl(self, -1, "10", size=(80, -1), validator=CharValidator(self.data, "scale"))
         box.Add(scaleTxt, 0, wx.EXPAND)
         
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
