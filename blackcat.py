@@ -529,7 +529,14 @@ class BlackCatFrame(wx.Frame):
         dlg = ParaDialog(self)
         result = dlg.ShowModal()
         if result == wx.ID_OK:
-            print dlg.data
+            data =  dlg.getValues()
+            height = data["height"]
+            pitch = data["pitch"]
+            speed = data["speed"]
+            fast = data["fast"]
+            scale = data["scale"]
+            direction = data["direction"]
+            print data
         else:
             print 'Cancel'
         dlg.Destroy()
@@ -549,7 +556,18 @@ class CharValidator(wx.PyValidator):
         return CharValidator(self.data, self.key)
     
     def Validate(self, win):
-        return True
+        textCtrl = self.GetWindow()
+        text = textCtrl.GetValue()
+        if len(text) == 0:
+            wx.MessageBox("This field must contain some text!", "Error")
+            textCtrl.SetBackgroundColour('pink')
+            textCtrl.Focus()
+            textCtrl.Refresh()
+            return False
+        else:
+            textCtrl.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
+            textCtrl.Refresh()
+            return True
     
     def TransferToWindow(self):
         return True
@@ -569,42 +587,37 @@ class ParaDialog(wx.Dialog):
 
     def __init__(self, parent):
         wx.Dialog.__init__(self, parent, -1, "Slice parameters", size=(200, 200))
-        self.height = "Layer height"
-        self.pitch = "Pitch"
-        self.scanSpeed = "Scanning speed"
-        self.fastSpeed = "Fast speed"
-        self.scale = "Scale factor"
-        self.slicedir = "Slicing direction"
-        self.data = {}
         self.createControls()
 
-
     def createControls(self):
-        labels = [(self.height, "0.43"), (self.pitch, "0.38"), (self.scanSpeed, "20"), (self.fastSpeed, "20")]
+        labels = [("Layer height", "0.43", "height"), ("Pitch", "0.38", "pitch"), \
+                  ("Scanning speed", "20", "speed"), ("Fast speed", "20", "fast")]
         
+        self.data = {}
         outsizer = wx.BoxSizer(wx.VERTICAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
         outsizer.Add(sizer, 0, wx.ALL, 10)
         box = wx.FlexGridSizer(rows=3, cols=2, hgap=5, vgap=5)
-        for label, value in labels:
+        for label, dvalue, key in labels:
             lbl = wx.StaticText(self, label=label)
             box.Add(lbl, 0, 0)
-
-            txt = wx.TextCtrl(self, -1, value, size=(80, -1), validator=CharValidator(self.data, label))
+            txt = wx.TextCtrl(self, -1, dvalue, size=(80, -1), validator=CharValidator(self.data, key))
             box.Add(txt, 0, 0)
         sizer.Add(box, 0, 0)
         
-        lbl = wx.StaticText(self, label=self.slicedir)
+        # slice direction
+        lbl = wx.StaticText(self, label="Slice direction")
         box.Add(lbl, 0, 0)
 
-        dirList = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
-        dirChoice = wx.Choice(self, -1, (160, -1), choices=dirList)
+        self.dirList = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
+        self.dirChoice = dirChoice = wx.Choice(self, -1, (160, -1), choices=self.dirList)
         dirChoice.SetSelection(4)
         box.Add(dirChoice, 0, wx.EXPAND)
         
-        lbl = wx.StaticText(self, label=self.scale)
+        # scale
+        lbl = wx.StaticText(self, label="Scale factor")
         box.Add(lbl, 0, 0)
-        scaleTxt = wx.TextCtrl(self, -1, "1.0", size=(80, -1), validator=CharValidator(self.data, self.scale))
+        scaleTxt = wx.TextCtrl(self, -1, "1.0", size=(80, -1), validator=CharValidator(self.data, "scale"))
         box.Add(scaleTxt, 0, wx.EXPAND)
         
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
@@ -623,6 +636,10 @@ class ParaDialog(wx.Dialog):
 
         self.SetSizer(outsizer)
         self.Fit()
+    
+    def getValues(self):
+        self.data["direction"] = self.dirList[self.dirChoice.GetCurrentSelection()]
+        return self.data
 
 if __name__ == '__main__':
     app = wx.PySimpleApp()
