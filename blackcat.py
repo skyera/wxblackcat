@@ -163,6 +163,11 @@ class CadModel:
             self.maxy = max(ylist)
             self.minz = min(zlist)
             self.maxz = max(zlist)
+            
+            self.xsize = self.maxx - self.minx
+            self.ysize = self.maxy - self.miny
+            self.zsize = self.maxz - self.minz
+
             self.logger.debug(self.minx)
             self.logger.debug(self.maxx)
             self.logger.debug(self.miny)
@@ -477,13 +482,21 @@ class ControlPanel(wx.Panel):
         box = wx.StaticBox(self, -1, "Dimension")
         boxsizer = wx.StaticBoxSizer(box, wx.VERTICAL)
         flex = wx.FlexGridSizer(rows=3, cols=2, hgap=2, vgap=2)
+        self.sizetxt = []
         for label in ("Height", "Width", "Length"):
             lbl = wx.StaticText(self, -1, label=label)
-            txt = wx.TextCtrl(self, -1, size=(90,-1))
+            txt = wx.TextCtrl(self, -1, size=(90,-1), style=wx.TE_READONLY)
+            self.sizetxt.append(txt)
             flex.Add(lbl)
             flex.Add(txt)
         boxsizer.Add(flex)
         return boxsizer
+
+    def setDimension(self, x, y, z):
+        self.sizetxt[0].SetValue(str(x))
+        self.sizetxt[1].SetValue(str(y))
+        self.sizetxt[2].SetValue(str(z))
+        
 
 class BlackCatFrame(wx.Frame):
 
@@ -496,7 +509,7 @@ class BlackCatFrame(wx.Frame):
         self.Centre()
 
     def createPanel(self):
-        leftPanel = ControlPanel(self)
+        self.leftPanel = leftPanel = ControlPanel(self)
         
         self.rightPanel = rightPanel = wx.Panel(self, -1)
         self.modelcanvas = c = ModelCanvas(rightPanel)
@@ -553,6 +566,8 @@ class BlackCatFrame(wx.Frame):
             ok = self.cadmodel.open(path)
             if ok:
                 self.modelcanvas.setModel(self.cadmodel)
+
+                self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
         dlg.Destroy()
 
     def OnSlice(self, event):
@@ -562,6 +577,7 @@ class BlackCatFrame(wx.Frame):
             data =  dlg.getValues()
             self.cadmodel.slice(data)
             self.modelcanvas.setModel(self.cadmodel)
+            self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
         else:
             print 'Cancel'
         dlg.Destroy()
