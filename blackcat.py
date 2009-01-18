@@ -5,6 +5,12 @@ import string
 import copy
 
 try:
+    import psyco
+    psyco.full()
+except ImportError:
+    pass
+
+try:
     from wx import glcanvas
     haveGLCanvas = True
 except ImportError:
