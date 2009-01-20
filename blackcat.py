@@ -56,6 +56,28 @@ class Facet:
         for p in self.points:
             s += str(p)
         return s
+    
+    def intersect(self, z):
+        L1 = [True for p in self.points if p.z > z]
+        L2 = [True for p in self.points if p.z < z]
+        if len(L1) == 3 or len(L2) == 3:
+            return
+        
+        L3 = [True for p in self.points if p.z == z]
+        n = len(L3)
+        if n == 0:
+            pass
+        elif n == 1:
+            pass
+        elif n == 2:    
+            pass
+
+    def intersect_0_vertex(self, points, z):
+        pass
+
+    def intersect_1_vertex(self, z):
+        pass
+
 class CadModel:
     def __init__(self):
         self.initLogger()
@@ -209,18 +231,19 @@ class CadModel:
             return False
 
     def slice(self, para):
-        self.height = para["height"]
-        self.pitch = para["pitch"]
-        self.speed = para["speed"]
-        self.fast = para["fast"]
+        self.height = float(para["height"])
+        self.pitch = float(para["pitch"])
+        self.speed = float(para["speed"])
+        self.fast = float(para["fast"])
         self.direction = para["direction"]
-        self.scale = para["scale"]
+        self.scale = float(para["scale"])
         print para
+        
         self.scaleModel(self.scale)
         self.getDimension()
+        self.formLayers()
     
     def scaleModel(self, factor):
-        factor = float(factor)
         self.facets = []
         for facet in self.oldfacets:
             nfacet = copy.deepcopy(facet)
@@ -232,7 +255,19 @@ class CadModel:
                 ps.append(p)
             nfacet.points = ps
             self.facets.append(nfacet)
-        
+    
+    def formLayers(self):
+        self.layers = []
+        z = self.minz + self.height
+        while z < self.maxz:
+            layer = self.formLayer(z)
+            z += self.height
+            print z
+    
+    def formLayer(self, z):
+        for facet in self.facets:
+            facet.intersect(z) 
+            
 class ModelCanvas(glcanvas.GLCanvas):
 
     def __init__(self, parent):
