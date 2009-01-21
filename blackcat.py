@@ -142,6 +142,7 @@ class CadModel:
     def __init__(self):
         self.initLogger()
         self.loaded = False
+        self.currLayer = -1
 
     def initLogger(self):
         #self.logger = logging.getLogger(self.__class__.__name__)
@@ -299,9 +300,11 @@ class CadModel:
         self.scale = float(para["scale"])
         print para
         
+        self.currLayer = -1
         self.scaleModel(self.scale)
         self.getDimension()
-        self.formLayers()
+        self.createLayers()
+        self.currLayer = 0
     
     def scaleModel(self, factor):
         self.facets = []
@@ -316,17 +319,17 @@ class CadModel:
             nfacet.points = ps
             self.facets.append(nfacet)
     
-    def formLayers(self):
+    def createLayers(self):
         self.layers = []
         z = self.minz + self.height
         while z < self.maxz:
-            layer = self.formLayer(z)
+            layer = self.createOneLayer(z)
             z += self.height
             if not layer.empty():
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
     
-    def formLayer(self, z):
+    def createOneLayer(self, z):
         layer = Layer()
         lines = []
         for facet in self.facets:
@@ -359,13 +362,15 @@ class PathCanvas(glcanvas.GLCanvas):
             glViewport(0, 0, size.width, size.height)
         self.Refresh(False)
         event.Skip()
-            
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
         self.SetCurrent()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.SwapBuffers()
+
+    def setLayers(self, layers):
+        self.layers = layers
             
 class ModelCanvas(glcanvas.GLCanvas):
 
@@ -733,6 +738,7 @@ class BlackCatFrame(wx.Frame):
             self.cadmodel.slice(data)
             self.modelCanvas.setModel(self.cadmodel)
             self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
+            self.pathCanvas.setLayers(self.cadmodel.layers)
         else:
             print 'Cancel'
         dlg.Destroy()
