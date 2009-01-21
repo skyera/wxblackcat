@@ -642,18 +642,26 @@ class BlackCatFrame(wx.Frame):
         self.Centre()
 
     def createPanel(self):
-        self.leftPanel = leftPanel = ControlPanel(self)
+        self.leftPanel  = ControlPanel(self)
         
-        self.rightPanel = rightPanel = wx.Panel(self, -1)
-        self.modelcanvas = c = ModelCanvas(rightPanel)
+        self.sp = wx.SplitterWindow(self)
+        self.modelPanel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
+        self.pathPanel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
+        self.pathPanel.SetBackgroundColour('sky blue')
+
+        self.modelCanvas = ModelCanvas(self.modelPanel)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(c, 1, wx.EXPAND)
-        rightPanel.SetSizer(sizer)
+        sizer.Add(self.modelCanvas, 1, wx.EXPAND)
+        self.modelPanel.SetSizer(sizer)
 
         box = wx.BoxSizer(wx.HORIZONTAL)
-        box.Add(leftPanel, 0, wx.EXPAND)
-        box.Add(rightPanel, 1, wx.EXPAND)
+        box.Add(self.leftPanel, 0, wx.EXPAND)
+        box.Add(self.sp, 1, wx.EXPAND)
         self.SetSizer(box)
+
+        self.sp.Initialize(self.modelPanel)
+        self.sp.SplitVertically(self.modelPanel, self.pathPanel, 100)
+        self.sp.SetMinimumPaneSize(10)
 
     def createMenuBar(self):
         menubar = wx.MenuBar()
@@ -698,7 +706,7 @@ class BlackCatFrame(wx.Frame):
             self.statusbar.SetStatusText(path)
             ok = self.cadmodel.open(path)
             if ok:
-                self.modelcanvas.setModel(self.cadmodel)
+                self.modelCanvas.setModel(self.cadmodel)
 
                 self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
         dlg.Destroy()
@@ -709,7 +717,7 @@ class BlackCatFrame(wx.Frame):
         if result == wx.ID_OK:
             data =  dlg.getValues()
             self.cadmodel.slice(data)
-            self.modelcanvas.setModel(self.cadmodel)
+            self.modelCanvas.setModel(self.cadmodel)
             self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
         else:
             print 'Cancel'
