@@ -338,6 +338,27 @@ class CadModel:
         layer.z = z
         layer.lines = lines
         return layer
+
+
+class PathCanvas(glcanvas.GLCanvas):
+
+    def __init__(self, parent):
+        glcanvas.GLCanvas.__init__(self, parent, -1)
+
+        self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
+        self.Bind(wx.EVT_SIZE, self.OnSize)
+        self.Bind(wx.EVT_PAINT, self.OnPaint)
+
+    def OnEraseBackground(self, event):
+        pass
+
+    def OnSize(self, event):
+        pass
+
+    def OnPaint(self, event):
+        dc = wx.PaintDC(self)
+        self.SetCurrent()
+
             
 class ModelCanvas(glcanvas.GLCanvas):
 
