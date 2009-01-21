@@ -160,6 +160,32 @@ class Layer:
     def empty(self):
         return len(self.lines) == 0
 
+    def calcDimension(self):
+        xlist = []
+        ylist = []
+        zlist = []
+        for line in self.lines:
+            p1 = line.p1
+            p2 = line.p2
+            
+            xlist.append(p1.x)
+            xlist.append(p2.x)
+            ylist.append(p1.y)
+            ylist.append(p2.y)
+            zlist.append(p1.z)
+            zlist.append(p2.z)
+        
+        self.minx = min(xlist)
+        self.maxx = max(xlist)
+        self.miny = min(ylist)
+        self.maxy = max(ylist)
+        self.minz = min(zlist)
+        self.maxz = max(zlist)
+
+        self.xsize = self.maxx - self.minx
+        self.ysize = self.maxy - self.miny
+        self.zsize = self.maxz - self.minz
+        
 class CadModel:
     def __init__(self):
         self.initLogger()
