@@ -45,6 +45,34 @@ class Point:
         s = '(%f, %f, %f) ' % (self.x, self.y, self.z)
         return s
 
+def intersect(x1, y1, x2, y2, x):
+    ''' compute y'''
+    y = (y2 - y1) / (x2 - x1) * (x - x1) + y1
+    return y
+
+def isIntersect(p1, p2, z):
+    if (p1.z - z) * (p2.z - z) < 0.0:
+        return True
+    else:
+        return False
+
+def getIntersect(p1, p2, z):
+    x1 = p1.x
+    y1 = p1.y
+    z1 = p1.z
+
+    x2 = p2.x
+    y2 = p2.y
+    z2 = p2.z
+    
+    x = intersect(z1, x1, z2, x2, z)
+    y = intersect(z1, y1, z2, y2, z)
+    p = Point()
+    p.x = x
+    p.y = y
+    p.z = z
+    return p
+
 class Facet:
     def __init__(self):
         self.normal = Point()
@@ -58,25 +86,57 @@ class Facet:
         return s
     
     def intersect(self, z):
+        line = []
         L1 = [True for p in self.points if p.z > z]
         L2 = [True for p in self.points if p.z < z]
         if len(L1) == 3 or len(L2) == 3:
-            return
+            return line
         
-        L3 = [True for p in self.points if p.z == z]
-        n = len(L3)
+        L1 = []
+        L2 = []
+        for i in range(3):
+            p = self.points[i]
+            if p.z == z:
+                L1.append(i)
+            else:
+                L2.append(i)
+        
+        points = self.points
+        n = len(L1)
         if n == 0:
-            pass
+            line = self.intersect_0_vertex(points, z)
         elif n == 1:
-            pass
-        elif n == 2:    
-            pass
+            line = self.intersect_1_vertex(points[L1[0]], points[L2[0]], points[L2[1]], z)
+        elif n == 2:
+            i1 = L1[0]
+            i2 = L1[1]
+            line = [points[i1], points[i2]]
+        return line
 
     def intersect_0_vertex(self, points, z):
-        pass
+        L = []
+        for i in range(3):
+            next = (i + 1) % 3
+            p1 = points[i]
+            p2 = points[next]
+            if isIntersect(p1, p2, z):
+                p = getIntersect(p1, p2, z)
+                L.append(p)
+        
+        assert len(L) == 2
+        return L
 
-    def intersect_1_vertex(self, z):
-        pass
+    def intersect_1_vertex(self, p1, p2, p3, z):
+        p = getIntersect(p2, p3, z)
+        return [p1, p]
+
+class Layer:
+
+    def __init__(self):
+        self.lines = []
+
+    def empty(self):
+        return len(self.lines) == 0
 
 class CadModel:
     def __init__(self):
@@ -262,11 +322,22 @@ class CadModel:
         while z < self.maxz:
             layer = self.formLayer(z)
             z += self.height
-            print z
+            if not layer.empty():
+                self.layers.append(layer)
+        print 'no of layers:', len(self.layers)                
     
     def formLayer(self, z):
+        layer = Layer()
+        lines = []
         for facet in self.facets:
-            facet.intersect(z) 
+            line = facet.intersect(z) 
+            n = len(line)
+            assert n == 0 or n == 2
+            if n == 2:
+                lines.append(line)
+        layer.z = z
+        layer.lines = lines
+        return layer
             
 class ModelCanvas(glcanvas.GLCanvas):
 
@@ -699,7 +770,7 @@ class ParaDialog(wx.Dialog):
         # scale
         lbl = wx.StaticText(self, label="Scale factor")
         box.Add(lbl, 0, 0)
-        scaleTxt = wx.TextCtrl(self, -1, "10", size=(80, -1), validator=CharValidator(self.data, "scale"))
+        scaleTxt = wx.TextCtrl(self, -1, "1", size=(80, -1), validator=CharValidator(self.data, "scale"))
         box.Add(scaleTxt, 0, wx.EXPAND)
         
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
