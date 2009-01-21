@@ -353,7 +353,13 @@ class PathCanvas(glcanvas.GLCanvas):
         pass
 
     def OnSize(self, event):
-        pass
+        if self.GetContext():
+            self.SetCurrent()
+            size = self.GetClientSize()
+            glViewport(0, 0, size.width, size.height)
+        self.Refresh(False)
+        event.Skip()
+            
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
