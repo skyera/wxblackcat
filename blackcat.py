@@ -358,7 +358,8 @@ class PathCanvas(glcanvas.GLCanvas):
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
         self.SetCurrent()
-
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        self.SwapBuffers()
             
 class ModelCanvas(glcanvas.GLCanvas):
 
@@ -648,7 +649,8 @@ class BlackCatFrame(wx.Frame):
         self.modelPanel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.pathPanel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.pathPanel.SetBackgroundColour('sky blue')
-
+        
+        # Model canvas
         self.modelCanvas = ModelCanvas(self.modelPanel)
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.modelCanvas, 1, wx.EXPAND)
@@ -659,8 +661,14 @@ class BlackCatFrame(wx.Frame):
         box.Add(self.sp, 1, wx.EXPAND)
         self.SetSizer(box)
 
+        # Path canvas
+        self.pathCanvas = PathCanvas(self.pathPanel)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.pathCanvas, 1, wx.EXPAND)
+        self.pathPanel.SetSizer(sizer)
+
         self.sp.Initialize(self.modelPanel)
-        self.sp.SplitVertically(self.modelPanel, self.pathPanel, 100)
+        self.sp.SplitVertically(self.modelPanel, self.pathPanel, 300)
         self.sp.SetMinimumPaneSize(10)
 
     def createMenuBar(self):
