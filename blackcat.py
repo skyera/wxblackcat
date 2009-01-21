@@ -45,6 +45,19 @@ class Point:
         s = '(%f, %f, %f) ' % (self.x, self.y, self.z)
         return s
 
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y and self.z == other.z
+
+class Line:
+    
+    def __init__(self):
+        self.p1 = Point()
+        self.p2 = Point()
+
+    def __eq__(self, other):
+        ret = (self.p1 == other.p1 and self.p2 == other.p2) or (self.p1 == other.p2 and self.p2 == other.p1)
+        return ret
+
 def intersect(x1, y1, x2, y2, x):
     ''' compute y'''
     y = (y2 - y1) / (x2 - x1) * (x - x1) + y1
@@ -86,11 +99,10 @@ class Facet:
         return s
     
     def intersect(self, z):
-        line = []
         L1 = [True for p in self.points if p.z > z]
         L2 = [True for p in self.points if p.z < z]
         if len(L1) == 3 or len(L2) == 3:
-            return line
+            return None
         
         L1 = []
         L2 = []
@@ -101,6 +113,7 @@ class Facet:
             else:
                 L2.append(i)
         
+        line = Line()
         points = self.points
         n = len(L1)
         if n == 0:
@@ -110,7 +123,10 @@ class Facet:
         elif n == 2:
             i1 = L1[0]
             i2 = L1[1]
-            line = [points[i1], points[i2]]
+            line.p1 = points[i1]
+            line.p2 = points[i2]
+        else:
+            line = None
         return line
 
     def intersect_0_vertex(self, points, z):
@@ -124,11 +140,17 @@ class Facet:
                 L.append(p)
         
         assert len(L) == 2
-        return L
+        line = Line()
+        line.p1 = L[0]
+        line.p2 = L[1]
+        return line
 
     def intersect_1_vertex(self, p1, p2, p3, z):
         p = getIntersect(p2, p3, z)
-        return [p1, p]
+        line = Line()
+        line.p1 = p1
+        line.p2 = p
+        return line
 
 class Layer:
 
@@ -329,14 +351,19 @@ class CadModel:
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
     
+    def existLine(self, lineList, line):
+        for it in lineList:
+            if line == it:
+                print 'exist line'
+                return True
+        return False
+
     def createOneLayer(self, z):
         layer = Layer()
         lines = []
         for facet in self.facets:
             line = facet.intersect(z) 
-            n = len(line)
-            assert n == 0 or n == 2
-            if n == 2:
+            if line and not self.existLine(lines, line): 
                 lines.append(line)
         layer.z = z
         layer.lines = lines
