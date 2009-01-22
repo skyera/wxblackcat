@@ -3,12 +3,13 @@ import os
 import sys
 import string
 import copy
+import time
 
 try:
     import psyco
     psyco.full()
-except ImportError:
-    pass
+except ImportError, e:
+    print e
 
 try:
     from wx import glcanvas
@@ -182,7 +183,19 @@ class Layer:
 
         self.xcenter = (self.minx + self.maxx) / 2
         self.ycenter = (self.miny + self.maxy) / 2
-        
+
+    def createGLList(self):
+        self.layerListId = 1001
+        glNewList(self.layerListId, GL_COMPILE)
+        glColor(0, 0, 1)
+        glBegin(GL_LINES)
+        for line in self.lines:
+            for p in [line.p1, line.p2]:
+                glVertex3f(p.x, p.y, p.z)
+        glEnd()
+        glEndList()
+        return self.layerListId
+
 class CadModel:
     def __init__(self):
         self.initLogger()
@@ -191,14 +204,17 @@ class CadModel:
         self.sliced = False
     
     def nextLayer(self):
+        n = len(self.layers)
         self.currLayer = (self.currLayer + 1) % len(self.layers)
-        return self.getCurrLayer()
+        print 'currLayer', self.currLayer, '/', n
     
     def prevLayer(self):
+        n = len(self.layers)
         self.currLayer -= 1
         if self.currLayer == -1:
             self.currLayer = len(self.layers) -1
-        return self.getCurrLayer()
+
+        print 'currLayer', self.currLayer, '/', n
 
     def getCurrLayer(self):
         return self.layers[self.currLayer]
@@ -295,7 +311,7 @@ class CadModel:
         else:
             raise FormatError, line
     
-    def getDimension(self):
+    def calcDimension(self):
         if self.loaded:
             xlist = []
             ylist = []
@@ -315,6 +331,13 @@ class CadModel:
             self.xsize = self.maxx - self.minx
             self.ysize = self.maxy - self.miny
             self.zsize = self.maxz - self.minz
+            
+            self.diameter = math.sqrt(self.xsize * self.xsize + self.ysize * self.ysize + self.zsize * self.zsize)
+
+            # Center
+            self.xcenter = (self.minx + self.maxx) / 2
+            self.ycenter = (self.miny + self.maxy) / 2
+            self.zcenter = (self.minz + self.maxz) / 2
 
             self.logger.debug(self.minx)
             self.logger.debug(self.maxx)
@@ -322,6 +345,7 @@ class CadModel:
             self.logger.debug(self.maxy)
             self.logger.debug(self.minz)
             self.logger.debug(self.maxz)
+    
 
     def open(self, filename):
         try:
@@ -343,7 +367,7 @@ class CadModel:
             return False
         
         if self.loaded:
-            self.getDimension()
+            self.calcDimension()
             self.logger.debug("no of facets:" + str(len(self.facets)))
             self.oldfacets = copy.deepcopy(self.facets)
             self.sliced = False
@@ -362,7 +386,7 @@ class CadModel:
         
         self.currLayer = -1
         self.scaleModel(self.scale)
-        self.getDimension()
+        self.calcDimension()
         self.createLayers()
         self.currLayer = 0
         self.sliced = True
@@ -381,15 +405,17 @@ class CadModel:
             self.facets.append(nfacet)
     
     def createLayers(self):
+        start = time.time()
         self.layers = []
         z = self.minz + self.height
         while z < self.maxz:
             layer = self.createOneLayer(z)
             z += self.height
             if not layer.empty():
-                print 'add layer'
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
+        cpu = time.time() - start
+        print 'cpu', cpu,'secs'
     
     def existLine(self, lineList, line):
         for it in lineList:
@@ -409,7 +435,24 @@ class CadModel:
         layer.lines = lines
         layer.calcDimension()
         return layer
+    
+    def createGLModelList(self):
+        self.modelListId = 1000
+        glNewList(self.modelListId, GL_COMPILE)
+        if self.loaded:
+            glColor(1, 0, 0)
+            glBegin(GL_TRIANGLES)
+            for facet in self.facets:
+                normal = facet.normal
+                glNormal3f(normal.x, normal.y, normal.z)
+                for p in facet.points:
+                    glVertex3f(p.x, p.y, p.z)
+            glEnd()
+        glEndList()
 
+    def createGLLayerList(self):
+        layer = self.getCurrLayer()
+        return layer.createGLList()
 
 class PathCanvas(glcanvas.GLCanvas):
 
@@ -419,7 +462,7 @@ class PathCanvas(glcanvas.GLCanvas):
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
-        self.layer = None
+        self.cadModel = None
 
     def OnEraseBackground(self, event):
         pass
@@ -439,69 +482,62 @@ class PathCanvas(glcanvas.GLCanvas):
         self.showPath()
         self.SwapBuffers()
 
-    def setLayer(self, layer):
-        self.layer = layer
+    def setModel(self, cadModel):
+        self.cadModel = cadModel
         self.Refresh()
 
     def setupProjection(self):
+        maxlen = self.cadModel.diameter
         size = self.GetClientSize()
         w = size.width
         h = size.height
         
+        half = maxlen / 2
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
 
         if w <= h:
             factor = float(h) / w
-            left = -self.layer.xsize / 2
-            right = -left
-            bottom = -self.layer.ysize / 2 * factor
-            top = -bottom
+            left = -half
+            right = half
+            bottom = -half * factor
+            top = half * factor
         else:
             factor = float(w) / h
-            left = -self.layer.xsize / 2 * factor
-            right = -left
-            bottom = -self.layer.ysize / 2
-            top = -bottom
+            left  = -half * factor 
+            right = half * factor
+            bottom = -half
+            top = half
         near = 0
-        far = 1 
-        glOrtho(left, right, bottom, top, near, far)
+        far = maxlen * 2
+        glOrtho(left, right, bottom, top, near, far)           
 
     def showPath(self):
-        if not self.layer:             
+        if not self.cadModel:
             return
 
         self.setupProjection()
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
-        glTranslatef(-self.layer.xcenter, -self.layer.ycenter, -self.layer.z)
-        glColor(1, 0, 0)
-        glBegin(GL_LINES)
-        for line in self.layer.lines:
-            p = line.p1
-            glVertex3f(p.x, p.y, p.z)
-            p = line.p2
-            glVertex3f(p.x, p.y, p.z)
-        glEnd()
+        layer = self.cadModel.getCurrLayer()
+        z = layer.z
+        glTranslatef(-self.cadModel.xcenter, -self.cadModel.ycenter, -z)
+        layerId = self.cadModel.createGLLayerList()
+        glCallList(layerId)
+
             
 class ModelCanvas(glcanvas.GLCanvas):
 
     def __init__(self, parent):
         glcanvas.GLCanvas.__init__(self, parent, -1)
         self.init = False
+        self.cadModel = None
         # initial mouse position
         self.lastx = self.x = 30
         self.lasty = self.y = 30
         self.size = None
         self.xangle = 0
         self.yangle = 0
-
-        self.minx = -1
-        self.maxx = 1
-        self.miny = -1
-        self.maxy = 1
-        self.minz = 0
-        self.maxz = 1
 
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_SIZE, self.OnSize)
@@ -512,21 +548,6 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.loaded = False
 
         self.modelList = 1000
-        self.getMaxLen()
-
-    def getMaxLen(self):
-        xlen = self.maxx - self.minx
-        ylen = self.maxy - self.miny
-        zlen = self.maxz - self.minz
-        maxlen = math.sqrt(math.pow(xlen, 2) + math.pow(ylen, 2) + math.pow(zlen, 2))
-        self.maxlen = maxlen
-        return maxlen
-
-    def getModelCenter(self):
-        x = (self.minx + self.maxx) / 2
-        y = (self.miny + self.maxy) / 2
-        z = (self.minz + self.maxz) / 2
-        return [x, y, z]
 
     def OnEraseBackground(self, event):
         pass # Do nothing, to avoid flashing on MSW.
@@ -536,6 +557,10 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.SetCurrent()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.showModel()
+
+        if self.cadModel and self.cadModel.sliced:
+            layerId = self.cadModel.createGLLayerList()
+            glCallList(layerId)
         self.SwapBuffers()
 
     def showModel(self):
@@ -547,16 +572,15 @@ class ModelCanvas(glcanvas.GLCanvas):
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
          
-        x, y, z = self.getModelCenter()
-        glTranslatef(0, 0, -self.maxlen)
+        glTranslatef(0, 0, -self.cadModel.diameter)
         # Rotate model
         glRotatef(self.xangle, 1, 0, 0)
         glRotatef(self.yangle, 0, 1, 1)
         
         # Move model to origin
-        glTranslatef(-x, -y, -z)
+        glTranslatef(-self.cadModel.xcenter, -self.cadModel.ycenter, -self.cadModel.zcenter)
         
-        glCallList(self.modelList)
+        glCallList(self.cadModel.modelListId)
 
     def OnMouseDown(self, evt):
         self.CaptureMouse()
@@ -575,18 +599,15 @@ class ModelCanvas(glcanvas.GLCanvas):
             self.yangle += (self.x - self.lastx)
             self.Refresh(False)
 
-    def setModel(self, cadmodel):
-        self.cadmodel = cadmodel
-        
-        self.minx = self.cadmodel.minx
-        self.maxx = self.cadmodel.maxx
-        self.miny = self.cadmodel.miny
-        self.maxy = self.cadmodel.maxy
-        self.minz = self.cadmodel.minz
-        self.maxz = self.cadmodel.maxz 
+    def setModel(self, cadModel):
+        self.cadModel = cadModel
+        self.xangle = 0
+        self.yangle = 0
         self.loaded = True
-        self.initGL()
-        self.getMaxLen()
+        self.SetCurrent()
+        self.setupGLContext()
+        self.cadModel.createGLModelList()
+        self.Refresh()
 
     def OnSize(self, event):
         if self.GetContext():
@@ -600,7 +621,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glViewport(0, 0, size.width, size.height)
 
     def setupProjection(self):
-        maxlen = self.maxlen
+        maxlen = self.cadModel.diameter
         size = self.GetClientSize()
         w = size.width
         h = size.height
@@ -625,33 +646,6 @@ class ModelCanvas(glcanvas.GLCanvas):
         far = maxlen * 2
         glOrtho(left, right, bottom, top, near, far)    
 
-    def initGL(self):
-        self.xangle = 0
-        self.yangle = 0
-        self.SetCurrent()
-        self.setupGLContext()
-        #self.setupViewport()
-        #self.setupProjection()
-        self.createModelList()
-        self.Refresh()
-    
-    def setupGLContext2(self):
-        self.SetCurrent()
-        glMaterial(GL_FRONT, GL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
-        glMaterial(GL_FRONT, GL_DIFFUSE, [0.8, 0.8, 0.8, 1.0])
-        glMaterial(GL_FRONT, GL_SPECULAR, [1.0, 0.0, 1.0, 1.0])
-        glMaterial(GL_FRONT, GL_SHININESS, 50.0)
-        glLight(GL_LIGHT0, GL_AMBIENT, [0.0, 1.0, 0.0, 1.0])
-        glLight(GL_LIGHT0, GL_DIFFUSE, [1.0, 1.0, 1.0, 1.0])
-        glLight(GL_LIGHT0, GL_SPECULAR, [1.0, 1.0, 1.0, 1.0])
-        glLight(GL_LIGHT0, GL_POSITION, [1.0, 1.0, 1.0, 0.0])
-        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
-        glEnable(GL_LIGHTING)
-        glEnable(GL_LIGHT0)
-        glDepthFunc(GL_LESS)
-        glEnable(GL_DEPTH_TEST)
-        glClearColor(0.0, 0.0, 0.0, 1.0)
-    
     def setupGLContext(self):
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
@@ -675,52 +669,10 @@ class ModelCanvas(glcanvas.GLCanvas):
         glEnable(GL_COLOR_MATERIAL)
         glMaterial(GL_FRONT, GL_SHININESS, 96)
 
-    def setupGLContext_1(self):
-        self.SetCurrent()
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_CULL_FACE)
-        #glShadeModel(GL_FLAT)
-        glShadeModel(GL_SMOOTH)
-        glPolygonMode(GL_BACK, GL_LINE)
-        
-        maxlen = self.getMaxLen()
-
-        # light0
-        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.4, 0.4, 0.9, 1.0])
-        #glLight(GL_LIGHT0, GL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
-        glLight(GL_LIGHT0, GL_AMBIENT, [1.0, 1.0, 1.0, 1.0])
-        glLight(GL_LIGHT0, GL_DIFFUSE, [0.7, 0.7, 0.7, 1.0])
-        glLight(GL_LIGHT0, GL_SPECULAR, [1.0, 1.0, 1.0, 1.0])
-        glLight(GL_LIGHT0, GL_POSITION, [-50.0, 200.0, 200.0, 1.0])
-        glEnable(GL_LIGHTING)
-        glEnable(GL_LIGHT0)
-
-        glEnable(GL_COLOR_MATERIAL)
-        glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
-
-        glMaterial(GL_FRONT, GL_SPECULAR, [0.2, 0.2, 0.2, 1.0])
-        #glMaterial(GL_FRONT, GL_SHININESS, 64)
-        glClearColor(0.0, 0.0, 0.0, 1.0)
-
-    def createModelList(self):
-        glNewList(self.modelList, GL_COMPILE)
-        if self.loaded:
-            glColor(1, 0, 0)
-            glBegin(GL_TRIANGLES)
-            for facet in self.cadmodel.facets:
-                normal = facet.normal
-                glNormal3f(normal.x, normal.y, normal.z)
-                for point in facet.points:
-                    glVertex3f(point.x, point.y, point.z)
-            glEnd()
-        glEndList()
-
 class ControlPanel(wx.Panel):
     
-    def __init__(self, parent, nextLayerHandler):
+    def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
-        #self.SetBackgroundColour('gray')
-        self.nextLayerHandler = nextLayerHandler
         self.createControls()
 
     def createControls(self):
@@ -735,14 +687,6 @@ class ControlPanel(wx.Panel):
         s = self.makeDimensionBox()
         sizer.Add(s)
 
-        nextLayerBtn = wx.Button(self, -1, "Next Layer")
-        sizer.Add(nextLayerBtn, 0, wx.ALL, 5)
-
-        self.Bind(wx.EVT_BUTTON, self.nextLayerHandler, nextLayerBtn)
-    
-    def nextLayer(self, event):
-        self.model.nextLayer() 
-    
     def makeDimensionBox(self):
         box = wx.StaticBox(self, -1, "Dimension")
         boxsizer = wx.StaticBoxSizer(box, wx.VERTICAL)
@@ -768,27 +712,42 @@ class BlackCatFrame(wx.Frame):
     def __init__(self):
         wx.Frame.__init__(self, None, -1, "Black Cat", size=(640,480))
         self.createMenuBar()
+        self.createToolbar()
         self.cadmodel = CadModel()
         self.statusbar = self.CreateStatusBar()
         self.createPanel()
         self.Centre()
+
+    def createToolbar(self):
+        self.ID_NEXT = 2000
+        self.ID_PREV = 2001
+        toolbar = self.CreateToolBar()
+        img_next = wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN)
+        img_prev = wx.ArtProvider.GetBitmap(wx.ART_GO_UP)
+        toolbar.AddLabelTool(self.ID_NEXT, 'next', img_next)
+        toolbar.AddLabelTool(self.ID_PREV, 'prev', img_prev)
+        toolbar.Realize()
+        self.Bind(wx.EVT_TOOL, self.OnNextLayer, id=self.ID_NEXT)
+        self.Bind(wx.EVT_TOOL, self.OnPrevLayer, id=self.ID_PREV)
         
-    def nextLayer(self, event):
+    def OnNextLayer(self, event):
         if not self.cadmodel.sliced:
             return
         print 'next'
         layer = self.cadmodel.nextLayer()
-        self.pathCanvas.setLayer(layer)
+        self.Refresh()
+        #self.pathCanvas.Refresh()
 
-    def prevLayer(self):
+    def OnPrevLayer(self, event):
         if not self.cadmodel.sliced:
             return
 
         layer = self.cadmodel.prevLayer()
-        self.pathCanvas.setLayer(layer)
+        self.Refresh()
+        #self.pathCanvas.Refresh()
 
     def createPanel(self):
-        self.leftPanel  = ControlPanel(self, self.nextLayer)
+        self.leftPanel  = ControlPanel(self)
         
         self.sp = wx.SplitterWindow(self)
         self.modelPanel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
@@ -814,7 +773,7 @@ class BlackCatFrame(wx.Frame):
 
         self.sp.Initialize(self.modelPanel)
         self.sp.SplitVertically(self.modelPanel, self.pathPanel, 300)
-        self.sp.SetMinimumPaneSize(10)
+        self.sp.SetMinimumPaneSize(20)
 
     def createMenuBar(self):
         menubar = wx.MenuBar()
@@ -860,7 +819,7 @@ class BlackCatFrame(wx.Frame):
             ok = self.cadmodel.open(path)
             if ok:
                 self.modelCanvas.setModel(self.cadmodel)
-
+                self.pathCanvas.setModel(None)
                 self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
         dlg.Destroy()
 
@@ -872,7 +831,7 @@ class BlackCatFrame(wx.Frame):
             self.cadmodel.slice(data)
             self.modelCanvas.setModel(self.cadmodel)
             self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
-            self.pathCanvas.setLayer(self.cadmodel.layers[0])
+            self.pathCanvas.setModel(self.cadmodel)
         else:
             print 'Cancel'
         dlg.Destroy()
