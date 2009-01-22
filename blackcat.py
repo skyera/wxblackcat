@@ -163,7 +163,6 @@ class Layer:
     def calcDimension(self):
         xlist = []
         ylist = []
-        zlist = []
         for line in self.lines:
             p1 = line.p1
             p2 = line.p2
@@ -172,25 +171,37 @@ class Layer:
             xlist.append(p2.x)
             ylist.append(p1.y)
             ylist.append(p2.y)
-            zlist.append(p1.z)
-            zlist.append(p2.z)
         
         self.minx = min(xlist)
         self.maxx = max(xlist)
         self.miny = min(ylist)
         self.maxy = max(ylist)
-        self.minz = min(zlist)
-        self.maxz = max(zlist)
 
         self.xsize = self.maxx - self.minx
         self.ysize = self.maxy - self.miny
-        self.zsize = self.maxz - self.minz
+
+        self.xcenter = (self.minx + self.maxx) / 2
+        self.ycenter = (self.miny + self.maxy) / 2
         
 class CadModel:
     def __init__(self):
         self.initLogger()
         self.loaded = False
         self.currLayer = -1
+        self.sliced = False
+    
+    def nextLayer(self):
+        self.currLayer = (self.currLayer + 1) % len(self.layers)
+        return self.getCurrLayer()
+    
+    def prevLayer(self):
+        self.currLayer -= 1
+        if self.currLayer == -1:
+            self.currLayer = len(self.layers) -1
+        return self.getCurrLayer()
+
+    def getCurrLayer(self):
+        return self.layers[self.currLayer]
 
     def initLogger(self):
         #self.logger = logging.getLogger(self.__class__.__name__)
@@ -335,6 +346,7 @@ class CadModel:
             self.getDimension()
             self.logger.debug("no of facets:" + str(len(self.facets)))
             self.oldfacets = copy.deepcopy(self.facets)
+            self.sliced = False
             return True
         else:
             return False
@@ -353,6 +365,7 @@ class CadModel:
         self.getDimension()
         self.createLayers()
         self.currLayer = 0
+        self.sliced = True
     
     def scaleModel(self, factor):
         self.facets = []
@@ -374,6 +387,7 @@ class CadModel:
             layer = self.createOneLayer(z)
             z += self.height
             if not layer.empty():
+                print 'add layer'
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
     
@@ -389,10 +403,11 @@ class CadModel:
         lines = []
         for facet in self.facets:
             line = facet.intersect(z) 
-            if line and not self.existLine(lines, line): 
+            if line:# and not self.existLine(lines, line): 
                 lines.append(line)
         layer.z = z
         layer.lines = lines
+        layer.calcDimension()
         return layer
 
 
@@ -404,6 +419,7 @@ class PathCanvas(glcanvas.GLCanvas):
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
+        self.layer = None
 
     def OnEraseBackground(self, event):
         pass
@@ -420,10 +436,53 @@ class PathCanvas(glcanvas.GLCanvas):
         dc = wx.PaintDC(self)
         self.SetCurrent()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        self.showPath()
         self.SwapBuffers()
 
-    def setLayers(self, layers):
-        self.layers = layers
+    def setLayer(self, layer):
+        self.layer = layer
+        self.Refresh()
+
+    def setupProjection(self):
+        size = self.GetClientSize()
+        w = size.width
+        h = size.height
+        
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+
+        if w <= h:
+            factor = float(h) / w
+            left = -self.layer.xsize / 2
+            right = -left
+            bottom = -self.layer.ysize / 2 * factor
+            top = -bottom
+        else:
+            factor = float(w) / h
+            left = -self.layer.xsize / 2 * factor
+            right = -left
+            bottom = -self.layer.ysize / 2
+            top = -bottom
+        near = 0
+        far = 1 
+        glOrtho(left, right, bottom, top, near, far)
+
+    def showPath(self):
+        if not self.layer:             
+            return
+
+        self.setupProjection()
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        glTranslatef(-self.layer.xcenter, -self.layer.ycenter, -self.layer.z)
+        glColor(1, 0, 0)
+        glBegin(GL_LINES)
+        for line in self.layer.lines:
+            p = line.p1
+            glVertex3f(p.x, p.y, p.z)
+            p = line.p2
+            glVertex3f(p.x, p.y, p.z)
+        glEnd()
             
 class ModelCanvas(glcanvas.GLCanvas):
 
@@ -658,9 +717,10 @@ class ModelCanvas(glcanvas.GLCanvas):
 
 class ControlPanel(wx.Panel):
     
-    def __init__(self, parent):
+    def __init__(self, parent, nextLayerHandler):
         wx.Panel.__init__(self, parent, -1)
         #self.SetBackgroundColour('gray')
+        self.nextLayerHandler = nextLayerHandler
         self.createControls()
 
     def createControls(self):
@@ -670,11 +730,18 @@ class ControlPanel(wx.Panel):
         lbl = wx.StaticText(self, -1, "Information")
         sizer.Add(lbl)
         sizer.Add(wx.StaticLine(self, -1), 0, wx.EXPAND)
-        #box.Add(wx.Button(self, -1, "hi"))
         mainsizer.Add(sizer, 0, wx.ALL, 10)
         self.SetSizer(mainsizer)
         s = self.makeDimensionBox()
         sizer.Add(s)
+
+        nextLayerBtn = wx.Button(self, -1, "Next Layer")
+        sizer.Add(nextLayerBtn, 0, wx.ALL, 5)
+
+        self.Bind(wx.EVT_BUTTON, self.nextLayerHandler, nextLayerBtn)
+    
+    def nextLayer(self, event):
+        self.model.nextLayer() 
     
     def makeDimensionBox(self):
         box = wx.StaticBox(self, -1, "Dimension")
@@ -705,9 +772,23 @@ class BlackCatFrame(wx.Frame):
         self.statusbar = self.CreateStatusBar()
         self.createPanel()
         self.Centre()
+        
+    def nextLayer(self, event):
+        if not self.cadmodel.sliced:
+            return
+        print 'next'
+        layer = self.cadmodel.nextLayer()
+        self.pathCanvas.setLayer(layer)
+
+    def prevLayer(self):
+        if not self.cadmodel.sliced:
+            return
+
+        layer = self.cadmodel.prevLayer()
+        self.pathCanvas.setLayer(layer)
 
     def createPanel(self):
-        self.leftPanel  = ControlPanel(self)
+        self.leftPanel  = ControlPanel(self, self.nextLayer)
         
         self.sp = wx.SplitterWindow(self)
         self.modelPanel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
@@ -791,7 +872,7 @@ class BlackCatFrame(wx.Frame):
             self.cadmodel.slice(data)
             self.modelCanvas.setModel(self.cadmodel)
             self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
-            self.pathCanvas.setLayers(self.cadmodel.layers)
+            self.pathCanvas.setLayer(self.cadmodel.layers[0])
         else:
             print 'Cancel'
         dlg.Destroy()
