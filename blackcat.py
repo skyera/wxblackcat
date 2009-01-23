@@ -269,7 +269,7 @@ class CadModel:
         items = line.split()
         no = len(items)
         if no != 5:
-            if no == 2 and items[0] == "endsolid":
+            if no >=1 and items[0] == "endsolid":
                 self.loaded = True
                 raise EndFileException, 'endfile'
             else:
@@ -335,7 +335,7 @@ class CadModel:
         line = self.getLine(f)
         items = line.split()
         no = len(items)
-        if no == 2 and items[0] == 'solid':
+        if no >= 2 and items[0] == 'solid':
             self.modelName = items[1]
         else:
             raise FormatError, line
