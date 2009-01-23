@@ -873,6 +873,10 @@ class BlackCatFrame(wx.Frame):
         dlg.Destroy()
 
     def OnSlice(self, event):
+        if not self.cadmodel.loaded:
+            wx.MessageBox("load a CAD model first", "warning")
+            return
+
         dlg = ParaDialog(self)
         result = dlg.ShowModal()
         if result == wx.ID_OK:
