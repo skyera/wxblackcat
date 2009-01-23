@@ -870,6 +870,8 @@ class BlackCatFrame(wx.Frame):
                 self.modelCanvas.setModel(self.cadmodel)
                 self.pathCanvas.setModel(None)
                 self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
+            else:
+                wx.MessageBox("Cannot open " + path, 'Error')
         dlg.Destroy()
 
     def OnSlice(self, event):
