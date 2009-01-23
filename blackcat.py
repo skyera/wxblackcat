@@ -913,9 +913,26 @@ class CharValidator(wx.PyValidator):
             textCtrl.Refresh()
             return False
         else:
-            textCtrl.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
-            textCtrl.Refresh()
-            return True
+            try:
+                value = float(text)
+            except ValueError:
+                wx.MessageBox("must be a number", "Error")  
+                textCtrl.SetBackgroundColour('pink')
+                textCtrl.SetFocus()
+                textCtrl.Refresh()
+
+                return False
+            if value < 0:
+                wx.MessageBox("value < 0!", "Error")
+                textCtrl.SetBackgroundColour('pink')
+                textCtrl.SetFocus()
+                textCtrl.Refresh()
+
+                return False
+
+        textCtrl.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
+        textCtrl.Refresh()
+        return True
     
     def TransferToWindow(self):
         textCtrl = self.GetWindow()
@@ -929,9 +946,11 @@ class CharValidator(wx.PyValidator):
         return True
     
     def OnChar(self, event):
-        key = chr(event.GetKeyCode())
-        if key in string.letters:
-            return
+        code = event.GetKeyCode()
+        if code < 256: 
+            key = chr(code)
+            if key in string.letters:
+                return
         event.Skip()
 
 class SlicePanel(wx.Panel):
