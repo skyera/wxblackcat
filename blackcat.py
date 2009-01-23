@@ -376,13 +376,13 @@ class CadModel:
             return False
 
     def slice(self, para):
+        print para
         self.height = float(para["height"])
         self.pitch = float(para["pitch"])
         self.speed = float(para["speed"])
         self.fast = float(para["fast"])
         self.direction = para["direction"]
         self.scale = float(para["scale"])
-        print para
         
         self.currLayer = -1
         self.scaleModel(self.scale)
@@ -685,20 +685,25 @@ class ControlPanel(wx.Panel):
         mainsizer.Add(sizer, 0, wx.ALL, 10)
         self.SetSizer(mainsizer)
         s = self.makeDimensionBox()
-        sizer.Add(s)
+        sizer.Add(s, 0, wx.EXPAND)
+        
+        data = {}
+        panel = SlicePanel(self, data)
+        panel.Disable()
+        sizer.Add(panel, 0, 0)
 
     def makeDimensionBox(self):
         box = wx.StaticBox(self, -1, "Dimension")
         boxsizer = wx.StaticBoxSizer(box, wx.VERTICAL)
         flex = wx.FlexGridSizer(rows=3, cols=2, hgap=2, vgap=2)
         self.sizetxt = []
-        for label in ("Height", "Width", "Length"):
+        for label in ("X", "Y", "Z"):
             lbl = wx.StaticText(self, -1, label=label)
             txt = wx.TextCtrl(self, -1, size=(90,-1), style=wx.TE_READONLY)
             self.sizetxt.append(txt)
             flex.Add(lbl)
-            flex.Add(txt)
-        boxsizer.Add(flex)
+            flex.Add(txt, 1, wx.EXPAND)
+        boxsizer.Add(flex, 0, wx.EXPAND)
         return boxsizer
 
     def setDimension(self, x, y, z):
@@ -710,7 +715,7 @@ class ControlPanel(wx.Panel):
 class BlackCatFrame(wx.Frame):
 
     def __init__(self):
-        wx.Frame.__init__(self, None, -1, "Black Cat", size=(640,480))
+        wx.Frame.__init__(self, None, -1, "Black Cat", size=(800,480))
         self.createMenuBar()
         self.createToolbar()
         self.cadmodel = CadModel()
@@ -856,7 +861,7 @@ class CharValidator(wx.PyValidator):
         if len(text) == 0:
             wx.MessageBox("This field must contain some text!", "Error")
             textCtrl.SetBackgroundColour('pink')
-            textCtrl.Focus()
+            #textCtrl.Focus()
             textCtrl.Refresh()
             return False
         else:
@@ -878,17 +883,17 @@ class CharValidator(wx.PyValidator):
             return
         event.Skip()
 
-class ParaDialog(wx.Dialog):
+class SlicePanel(wx.Panel):
 
-    def __init__(self, parent):
-        wx.Dialog.__init__(self, parent, -1, "Slice parameters", size=(200, 200))
+    def __init__(self, parent, data):
+        wx.Panel.__init__(self, parent, -1)
+        self.data = data
         self.createControls()
 
     def createControls(self):
         labels = [("Layer height", "0.43", "height"), ("Pitch", "0.38", "pitch"), \
                   ("Scanning speed", "20", "speed"), ("Fast speed", "20", "fast")]
         
-        self.data = {}
         outsizer = wx.BoxSizer(wx.VERTICAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
         outsizer.Add(sizer, 0, wx.ALL, 10)
@@ -914,7 +919,27 @@ class ParaDialog(wx.Dialog):
         box.Add(lbl, 0, 0)
         scaleTxt = wx.TextCtrl(self, -1, "1", size=(80, -1), validator=CharValidator(self.data, "scale"))
         box.Add(scaleTxt, 0, wx.EXPAND)
-        
+        self.SetSizer(outsizer)
+
+    def getSliceDir(self):
+        self.data["direction"] = self.dirList[self.dirChoice.GetCurrentSelection()]
+        self.Validate()
+
+class ParaDialog(wx.Dialog):
+
+    def __init__(self, parent):
+        #wx.Dialog.__init__(self, parent, -1, "Slice parameters", size=(200, 200))
+        pre = wx.PreDialog()
+        pre.SetExtraStyle(wx.WS_EX_VALIDATE_RECURSIVELY)
+        pre.Create(parent, -1, "Slice parameters")
+        self.PostCreate(pre)
+        self.data = {}
+        self.createControls()
+
+    def createControls(self):
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        self.panel = SlicePanel(self, self.data)
+        sizer.Add(self.panel, 0, 0)
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
         
         #
@@ -929,11 +954,11 @@ class ParaDialog(wx.Dialog):
         btnSizer.Add((10,10), 1)
         sizer.Add(btnSizer, 0, wx.EXPAND|wx.ALL, 10)
 
-        self.SetSizer(outsizer)
+        self.SetSizer(sizer)
         self.Fit()
     
     def getValues(self):
-        self.data["direction"] = self.dirList[self.dirChoice.GetCurrentSelection()]
+        self.panel.getSliceDir()
         return self.data
 
 if __name__ == '__main__':
