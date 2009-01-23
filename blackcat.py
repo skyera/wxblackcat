@@ -14,15 +14,16 @@ except ImportError, e:
 try:
     from wx import glcanvas
     haveGLCanvas = True
-except ImportError:
-    haveGLCanvas = False
+except ImportError, e:
+    print e
+    sys.exit()
 
 try:
     from OpenGL.GL import *
     from OpenGL.GLUT import *
-    haveOpenGL = True
-except ImportError:
-    haveOpenGL = False
+except ImportError, e:
+    print e
+    sys.exit()
 
 import logging
 import pprint
@@ -99,6 +100,27 @@ class Facet:
             s += str(p)
         return s
     
+    def changeDirection(self, direction):
+        if direction == "+X":
+            for p in self.points:
+                p.x, p.z = p.z, p.x
+        elif direction == "-X":
+            for p in self.points:
+                p.x, p.z = p.z, -p.x
+        elif direction == "+Y":
+            for p in self.points:
+                p.y, p.z = p.z, p.y
+        elif direction == "-Y":
+            for p in self.points:
+                p.y, p.z = p.z, -p.y
+        elif direction == '-Z':
+            for p in self.points:
+                p.z = -p.z
+        elif direction == '+Z':
+            pass
+        else:
+            assert 0
+
     def intersect(self, z):
         L1 = [True for p in self.points if p.z > z]
         L2 = [True for p in self.points if p.z < z]
@@ -120,7 +142,14 @@ class Facet:
         if n == 0:
             line = self.intersect_0_vertex(points, z)
         elif n == 1:
-            line = self.intersect_1_vertex(points[L1[0]], points[L2[0]], points[L2[1]], z)
+            i1 = L2[0]
+            i2 = L2[1]
+            p1 = points[i1]
+            p2 = points[i2]
+            if isIntersect(p1, p2, z):
+                line = self.intersect_1_vertex(points[L1[0]], points[L2[0]], points[L2[1]], z)
+            else:
+                line = None
         elif n == 2:
             i1 = L1[0]
             i2 = L1[1]
@@ -386,6 +415,7 @@ class CadModel:
         
         self.currLayer = -1
         self.scaleModel(self.scale)
+        self.changeDirection(self.direction)
         self.calcDimension()
         self.createLayers()
         self.currLayer = 0
@@ -403,6 +433,10 @@ class CadModel:
                 ps.append(p)
             nfacet.points = ps
             self.facets.append(nfacet)
+    
+    def changeDirection(self, direction):
+        for facet in self.facets:
+            facet.changeDirection(direction)
     
     def createLayers(self):
         start = time.time()
@@ -710,7 +744,8 @@ class ControlPanel(wx.Panel):
         self.sizetxt[0].SetValue(str(x))
         self.sizetxt[1].SetValue(str(y))
         self.sizetxt[2].SetValue(str(z))
-        
+
+sliceParameter = {"height":"0.4", "pitch":"0.38", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
 
 class BlackCatFrame(wx.Frame):
 
@@ -724,14 +759,23 @@ class BlackCatFrame(wx.Frame):
         self.Centre()
 
     def createToolbar(self):
+        self.ID_OPEN = 1000
+        self.ID_SLICE = 1001
         self.ID_NEXT = 2000
         self.ID_PREV = 2001
         toolbar = self.CreateToolBar()
+        img_open = wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN)
+        img_slice = wx.ArtProvider.GetBitmap(wx.ART_CDROM)
         img_next = wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN)
         img_prev = wx.ArtProvider.GetBitmap(wx.ART_GO_UP)
+        toolbar.AddLabelTool(self.ID_OPEN, 'open', img_open)
+        toolbar.AddLabelTool(self.ID_SLICE, 'slice', img_slice)
         toolbar.AddLabelTool(self.ID_NEXT, 'next', img_next)
         toolbar.AddLabelTool(self.ID_PREV, 'prev', img_prev)
         toolbar.Realize()
+
+        self.Bind(wx.EVT_TOOL, self.OnOpen, id=self.ID_OPEN)
+        self.Bind(wx.EVT_TOOL, self.OnSlice, id=self.ID_SLICE)
         self.Bind(wx.EVT_TOOL, self.OnNextLayer, id=self.ID_NEXT)
         self.Bind(wx.EVT_TOOL, self.OnPrevLayer, id=self.ID_PREV)
         
@@ -832,8 +876,8 @@ class BlackCatFrame(wx.Frame):
         dlg = ParaDialog(self)
         result = dlg.ShowModal()
         if result == wx.ID_OK:
-            data =  dlg.getValues()
-            self.cadmodel.slice(data)
+            sliceParameter =  dlg.getValues()
+            self.cadmodel.slice(sliceParameter)
             self.modelCanvas.setModel(self.cadmodel)
             self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
             self.pathCanvas.setModel(self.cadmodel)
@@ -861,7 +905,7 @@ class CharValidator(wx.PyValidator):
         if len(text) == 0:
             wx.MessageBox("This field must contain some text!", "Error")
             textCtrl.SetBackgroundColour('pink')
-            #textCtrl.Focus()
+            textCtrl.SetFocus()
             textCtrl.Refresh()
             return False
         else:
@@ -870,6 +914,9 @@ class CharValidator(wx.PyValidator):
             return True
     
     def TransferToWindow(self):
+        textCtrl = self.GetWindow()
+        value = self.data.get(self.key, "")
+        textCtrl.SetValue(value)
         return True
 
     def TransferFromWindow(self):
@@ -933,12 +980,11 @@ class ParaDialog(wx.Dialog):
         pre.SetExtraStyle(wx.WS_EX_VALIDATE_RECURSIVELY)
         pre.Create(parent, -1, "Slice parameters")
         self.PostCreate(pre)
-        self.data = {}
         self.createControls()
 
     def createControls(self):
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.panel = SlicePanel(self, self.data)
+        self.panel = SlicePanel(self, sliceParameter)
         sizer.Add(self.panel, 0, 0)
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
         
@@ -959,7 +1005,7 @@ class ParaDialog(wx.Dialog):
     
     def getValues(self):
         self.panel.getSliceDir()
-        return self.data
+        return sliceParameter
 
 if __name__ == '__main__':
     app = wx.PySimpleApp()
