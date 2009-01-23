@@ -713,18 +713,13 @@ class ControlPanel(wx.Panel):
         mainsizer = wx.BoxSizer(wx.VERTICAL)
         
         sizer = wx.BoxSizer(wx.VERTICAL)
-        lbl = wx.StaticText(self, -1, "Information")
-        sizer.Add(lbl)
-        sizer.Add(wx.StaticLine(self, -1), 0, wx.EXPAND)
         mainsizer.Add(sizer, 0, wx.ALL, 10)
         self.SetSizer(mainsizer)
         s = self.makeDimensionBox()
-        sizer.Add(s, 0, wx.EXPAND)
-        
-        data = {}
-        panel = SlicePanel(self, data)
-        panel.Disable()
-        sizer.Add(panel, 0, 0)
+        sizer.Add(s, 0, wx.ALIGN_CENTER)
+        sizer.Add((10,10)) 
+        sliceSizer = self.createSliceInfo()
+        sizer.Add(sliceSizer, 0, 0)
 
     def makeDimensionBox(self):
         box = wx.StaticBox(self, -1, "Dimension")
@@ -735,10 +730,19 @@ class ControlPanel(wx.Panel):
             lbl = wx.StaticText(self, -1, label=label)
             txt = wx.TextCtrl(self, -1, size=(90,-1), style=wx.TE_READONLY)
             self.sizetxt.append(txt)
-            flex.Add(lbl)
+            flex.Add(lbl, 0, wx.RIGHT, 5)
             flex.Add(txt, 1, wx.EXPAND)
-        boxsizer.Add(flex, 0, wx.EXPAND)
+        boxsizer.Add(flex, 0, 0)
+        #flex.AddGrowableCol(1, 1)
         return boxsizer
+
+    def createSliceInfo(self):
+        box = wx.StaticBox(self, -1, "Slice parameters")
+        sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
+        panel = SlicePanel(self, sliceParameter)
+        panel.disableTxt()
+        sizer.Add(panel, 0, wx.ALL, 5)
+        return sizer
 
     def setDimension(self, x, y, z):
         self.sizetxt[0].SetValue(str(x))
@@ -960,6 +964,7 @@ class SlicePanel(wx.Panel):
     def __init__(self, parent, data):
         wx.Panel.__init__(self, parent, -1)
         self.data = data
+        self.txtList = []
         self.createControls()
 
     def createControls(self):
@@ -975,6 +980,7 @@ class SlicePanel(wx.Panel):
             box.Add(lbl, 0, 0)
             txt = wx.TextCtrl(self, -1, dvalue, size=(80, -1), validator=CharValidator(self.data, key))
             box.Add(txt, 0, 0)
+            self.txtList.append(txt)
         sizer.Add(box, 0, 0)
         
         # slice direction
@@ -985,6 +991,7 @@ class SlicePanel(wx.Panel):
         self.dirChoice = dirChoice = wx.Choice(self, -1, (160, -1), choices=self.dirList)
         dirChoice.SetSelection(4)
         box.Add(dirChoice, 0, wx.EXPAND)
+        self.txtList.append(dirChoice)
         
         # scale
         lbl = wx.StaticText(self, label="Scale factor")
@@ -992,10 +999,16 @@ class SlicePanel(wx.Panel):
         scaleTxt = wx.TextCtrl(self, -1, "1", size=(80, -1), validator=CharValidator(self.data, "scale"))
         box.Add(scaleTxt, 0, wx.EXPAND)
         self.SetSizer(outsizer)
+        self.txtList.append(scaleTxt)
 
     def getSliceDir(self):
         self.data["direction"] = self.dirList[self.dirChoice.GetCurrentSelection()]
         self.Validate()
+
+    def disableTxt(self):
+        for txt in self.txtList:
+            txt.SetBackgroundColour('white')
+            txt.Disable()
 
 class ParaDialog(wx.Dialog):
 
