@@ -38,10 +38,10 @@ class FormatError(Exception):
         self.args = args
 
 class Point:
-    def __init__(self):
-        self.x = 0.0
-        self.y = 0.0
-        self.z = 0.0
+    def __init__(self, x=0.0, y=0.0, z=0.0):
+        self.x = x
+        self.y = y
+        self.z = z
 
     def __str__(self):
         s = '(%f, %f, %f) ' % (self.x, self.y, self.z)
@@ -50,15 +50,51 @@ class Point:
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y and self.z == other.z
 
+    def __cmp__(self, other):
+        if self == other:
+            return 0
+        elif self.x < other.x or self.y < other.y or self.z < other.z:
+            return -1
+        else:
+            return 1
+    
+    def __hash__(self):
+        t = (self.x, self.y, self.z)
+        return hash(t)
+
+
 class Line:
     
-    def __init__(self):
-        self.p1 = Point()
-        self.p2 = Point()
+    def __init__(self, p1=Point(), p2=Point()):
+        self.p1 = p1
+        self.p2 = p2
+
+    def __str__(self):
+        return str(self.p1) + " -> " + str(self.p2)
 
     def __eq__(self, other):
         ret = (self.p1 == other.p1 and self.p2 == other.p2) or (self.p1 == other.p2 and self.p2 == other.p1)
         return ret
+
+    def __cmp__(self, other):
+        L1 = [self.p1, self.p2]
+        L2 = [other.p1, other.p2]
+        L1.sort()
+        L2.sort()
+        
+        if L1 == L2:
+            return 0
+        elif L1 < L2:
+            return -1
+        else:
+            return 1
+            return 0
+    
+    def __hash__(self):
+        L = [self.p1, self.p2]
+        L.sort()
+        t = tuple(L)
+        return hash(t)
 
 def intersect(x1, y1, x2, y2, x):
     ''' compute y'''
@@ -82,10 +118,7 @@ def getIntersect(p1, p2, z):
     
     x = intersect(z1, x1, z2, x2, z)
     y = intersect(z1, y1, z2, y2, z)
-    p = Point()
-    p.x = x
-    p.y = y
-    p.z = z
+    p = Point(x, y, z)
     return p
 
 class Facet:
@@ -277,12 +310,9 @@ class CadModel:
         
         if items[0] != 'facet' and items[1] != 'normal':
             raise FormatError, line
-
+        
         L = map(lambda x: float(x), items[2:])
-        normal = Point()
-        normal.x = L[0]
-        normal.y = L[1]
-        normal.z = L[1]
+        normal = Point(L[0], L[1], L[2])
         return normal
 
     def getOuterloop(self, f):
@@ -302,10 +332,7 @@ class CadModel:
                 raise FormatError, line
 
             L = map(lambda x: float(x), items[1:])
-            point = Point()
-            point.x = L[0]
-            point.y = L[1]
-            point.z = L[2]
+            point = Point(L[0], L[1], L[2])
             points.append(point)
         return points
     
@@ -460,11 +487,11 @@ class CadModel:
 
     def createOneLayer(self, z):
         layer = Layer()
-        lines = []
+        lines = set()
         for facet in self.facets:
             line = facet.intersect(z) 
-            if line:# and not self.existLine(lines, line): 
-                lines.append(line)
+            if line:
+                lines.add(line)
         layer.z = z
         layer.lines = lines
         layer.calcDimension()
@@ -601,7 +628,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         if not self.loaded:
             return
         
-        #self.setupViewport()
+        #self.setupGLContext()
         self.setupProjection()
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
@@ -639,7 +666,13 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.yangle = 0
         self.loaded = True
         self.SetCurrent()
-        self.setupGLContext()
+        
+        if not self.init:
+            self.setupGLContext()
+            self.init =  True
+        d = self.cadModel.diameter
+        position = [d, d, d, 1.0]
+        glLightfv(GL_LIGHT0, GL_POSITION, position);
         self.cadModel.createGLModelList()
         self.Refresh()
 
@@ -684,10 +717,11 @@ class ModelCanvas(glcanvas.GLCanvas):
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
 
-        ambientLight = [ 0.2, 0.2, 0.2, 1.0 ]
-        diffuseLight = [ 0.8, 0.8, 0.8, 1.0 ]
-        specularLight = [ 0.5, 0.5, 0.5, 1.0 ]
-        position = [ -1.5, 1.0, -4.0, 1.0 ]
+        ambientLight = [0.2, 0.2, 0.2, 1.0 ]
+        diffuseLight = [0.8, 0.8, 0.8, 1.0 ]
+        specularLight = [0.5, 0.5, 0.5, 1.0 ]
+        position = [-1.5, 1.0, -4.0, 1.0 ]
+        position = [-15.0, 30.0, -40.0, 1.0 ]
 
         glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
         glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);

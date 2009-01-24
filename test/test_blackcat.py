@@ -50,6 +50,40 @@ class CadModelTest(unittest.TestCase):
         cadmodel = CadModel()
         ok = cadmodel.open(fname)
         self.assert_(not ok)
+    
+    def testLine(self):
+        p1 = Point(1.0, 2.0, 3.0)
+        p2 = Point(4.0, 5.0, 6.0)
+        
+        line1 = Line(p1, p2)
+        line2 = Line(p2, p1)
+        
+        ok = line1 == line2
+        self.assert_(ok)
+        
+        ok = (line1 < line2)
+        self.assert_(not ok)
+
+        ok = (line2 > line1)
+        self.assert_(not ok)
+
+        s = set()
+        s.add(line1)
+        s.add(line2)
+        self.assert_(len(s) == 1)
+
+        ok = line1 in s
+        self.assert_(ok)
+        ok = line2 in s
+        self.assert_(ok)
+    
+    def testLine2(self):
+        p1 = Point(1.0, -0.0, 2.0)
+        p2 = Point(1.0, 0.0, 2.0)
+
+        ok = (p1 == p2)
+        self.assert_(ok)
+
 
 if __name__ == '__main__':
     unittest.main()
