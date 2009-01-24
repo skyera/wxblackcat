@@ -453,13 +453,18 @@ class CadModel:
         self.direction = para["direction"]
         self.scale = float(para["scale"])
         
-        self.currLayer = -1
         self.scaleModel(self.scale)
         self.changeDirection(self.direction)
         self.calcDimension()
         self.createLayers()
-        self.currLayer = 0
-        self.sliced = True
+        if len(self.layers) > 0:
+            self.currLayer = 0
+            self.sliced = True
+            self.currLayer += 1
+            return True
+        else:
+            self.sliced = False
+            return False
     
     def scaleModel(self, factor):
         self.facets = []
@@ -581,7 +586,7 @@ class PathCanvas(glcanvas.GLCanvas):
         glOrtho(left, right, bottom, top, near, far)           
 
     def showPath(self):
-        if not self.cadModel:
+        if not self.cadModel or not self.cadModel.sliced:
             return
 
         self.setupProjection()
@@ -928,10 +933,15 @@ class BlackCatFrame(wx.Frame):
         result = dlg.ShowModal()
         if result == wx.ID_OK:
             sliceParameter =  dlg.getValues()
-            self.cadmodel.slice(sliceParameter)
-            self.modelCanvas.setModel(self.cadmodel)
-            self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
-            self.pathCanvas.setModel(self.cadmodel)
+            ok = self.cadmodel.slice(sliceParameter)
+            if ok:
+                self.modelCanvas.setModel(self.cadmodel)
+                self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
+                self.pathCanvas.setModel(self.cadmodel)
+            else:
+                self.Refresh()
+                wx.MessageBox("no layers", "Warning")
+
         else:
             print 'Cancel'
         dlg.Destroy()
