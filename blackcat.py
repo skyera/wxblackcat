@@ -726,6 +726,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
         glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
         glLightfv(GL_LIGHT0, GL_POSITION, position);
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
 
         mcolor = [ 0.0, 0.0, 0.4, 1.0]
         glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, mcolor)
@@ -734,7 +735,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glPolygonMode(GL_BACK, GL_LINE)
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
         glEnable(GL_COLOR_MATERIAL)
-        glMaterial(GL_FRONT, GL_SHININESS, 96)
+        glMaterial(GL_FRONT, GL_SHININESS, 50)#96)
 
 class ControlPanel(wx.Panel):
     
