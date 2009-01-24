@@ -460,7 +460,7 @@ class CadModel:
         if len(self.layers) > 0:
             self.currLayer = 0
             self.sliced = True
-            self.currLayer += 1
+            self.currLayer = 0
             return True
         else:
             self.sliced = False
