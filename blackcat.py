@@ -670,9 +670,6 @@ class ModelCanvas(glcanvas.GLCanvas):
         if not self.init:
             self.setupGLContext()
             self.init =  True
-        d = self.cadModel.diameter
-        position = [d, d, d, 1.0]
-        glLightfv(GL_LIGHT0, GL_POSITION, position);
         self.cadModel.createGLModelList()
         self.Refresh()
 
