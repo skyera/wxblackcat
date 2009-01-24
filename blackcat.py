@@ -88,13 +88,41 @@ class Line:
             return -1
         else:
             return 1
-            return 0
     
+    def length(self):
+        dx = self.p1.x - self.p2.x
+        dy = self.p1.y - self.p2.y
+        dz = self.p1.z - self.p2.z
+        sum = dx * dx + dy * dy + dz * dz
+        return math.sqrt(sum)
+    
+    def slope(self):
+        y = self.p2.y - self.p1.y 
+        x = self.p1.x - self.p1.x
+        
+        if x == 0.0:
+            return 0.0
+        else:
+            k = y / x
+            return k
+
     def __hash__(self):
         L = [self.p1, self.p2]
         L.sort()
         t = tuple(L)
         return hash(t)
+
+    def onSameLine(self, other):
+        for p in (self.p1, self.p2):
+            if p in (other.p1, other.p2):
+                adj = True
+                k1 = self.slope()
+                k2 = other.slope()
+                if k1 == k2:
+                    return True
+        else:
+            adj = False
+            return False
 
 def intersect(x1, y1, x2, y2, x):
     ''' compute y'''
@@ -169,7 +197,6 @@ class Facet:
             else:
                 L2.append(i)
         
-        line = Line()
         points = self.points
         n = len(L1)
         if n == 0:
@@ -186,10 +213,13 @@ class Facet:
         elif n == 2:
             i1 = L1[0]
             i2 = L1[1]
-            line.p1 = points[i1]
-            line.p2 = points[i2]
+            line = Line(points[i1], points[i2])
         else:
             line = None
+        if line:
+            length = line.length()
+            if not length > 0:
+                print line, length
         return line
 
     def intersect_0_vertex(self, points, z):
@@ -234,6 +264,12 @@ class Layer:
         glEnd()
         glEndList()
         return self.layerListId
+
+    def meltLines(self):
+        while len(self.lines) != 0:
+            line = self.lines.pop()
+            for line in self.lines:
+                pass 
 
 class CadModel:
     def __init__(self):
@@ -452,7 +488,6 @@ class CadModel:
             z += self.height
             if not layer.empty():
                 count += 1
-                print 'layer', count
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
         cpu = time.time() - start
