@@ -83,7 +83,15 @@ class CadModelTest(unittest.TestCase):
 
         ok = (p1 == p2)
         self.assert_(ok)
-
-
+    
+    def testOnSameLine(self):
+        p1 = Point(0, 0, 0)
+        p2 = Point(2, 4, 0)
+        p3 = Point(4, 8, 0)
+        line1 = Line(p1, p2)
+        line2 = Line(p2, p3)
+        
+        ok = line1.onSameLine(line2)
+        self.assert_(ok)
 if __name__ == '__main__':
     unittest.main()
