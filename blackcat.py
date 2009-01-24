@@ -545,7 +545,7 @@ class PathCanvas(glcanvas.GLCanvas):
             self.SetCurrent()
             size = self.GetClientSize()
             glViewport(0, 0, size.width, size.height)
-        self.Refresh(False)
+        self.Refresh()
         event.Skip()
 
     def OnPaint(self, event):
@@ -689,7 +689,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         if self.GetContext():
             self.SetCurrent()
             self.setupViewport()
-        self.Refresh(False)
+        self.Refresh()
         event.Skip()
     
     def setupViewport(self):
@@ -852,6 +852,7 @@ class BlackCatFrame(wx.Frame):
         self.modelPanel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.pathPanel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.pathPanel.SetBackgroundColour('sky blue')
+        self.sp.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGED, self.OnPosChanging)
         
         # Model canvas
         self.modelCanvas = ModelCanvas(self.modelPanel)
@@ -873,6 +874,9 @@ class BlackCatFrame(wx.Frame):
         self.sp.Initialize(self.modelPanel)
         self.sp.SplitVertically(self.modelPanel, self.pathPanel, 300)
         self.sp.SetMinimumPaneSize(20)
+    
+    def OnPosChanging(self, event):
+        self.Refresh()
 
     def createMenuBar(self):
         menubar = wx.MenuBar()
