@@ -223,29 +223,6 @@ class Layer:
     def empty(self):
         return len(self.lines) == 0
 
-    def calcDimension(self):
-        xlist = []
-        ylist = []
-        for line in self.lines:
-            p1 = line.p1
-            p2 = line.p2
-            
-            xlist.append(p1.x)
-            xlist.append(p2.x)
-            ylist.append(p1.y)
-            ylist.append(p2.y)
-        
-        self.minx = min(xlist)
-        self.maxx = max(xlist)
-        self.miny = min(ylist)
-        self.maxy = max(ylist)
-
-        self.xsize = self.maxx - self.minx
-        self.ysize = self.maxy - self.miny
-
-        self.xcenter = (self.minx + self.maxx) / 2
-        self.ycenter = (self.miny + self.maxy) / 2
-
     def createGLList(self):
         self.layerListId = 1001
         glNewList(self.layerListId, GL_COMPILE)
@@ -469,22 +446,18 @@ class CadModel:
         start = time.time()
         self.layers = []
         z = self.minz + self.height
+        count = 0
         while z < self.maxz:
             layer = self.createOneLayer(z)
             z += self.height
             if not layer.empty():
+                count += 1
+                print 'layer', count
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
         cpu = time.time() - start
         print 'cpu', cpu,'secs'
     
-    def existLine(self, lineList, line):
-        for it in lineList:
-            if line == it:
-                print 'exist line'
-                return True
-        return False
-
     def createOneLayer(self, z):
         layer = Layer()
         lines = set()
@@ -494,7 +467,6 @@ class CadModel:
                 lines.add(line)
         layer.z = z
         layer.lines = lines
-        layer.calcDimension()
         return layer
     
     def createGLModelList(self):
