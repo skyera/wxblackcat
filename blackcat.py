@@ -876,7 +876,7 @@ class BlackCatFrame(wx.Frame):
         self.sp.SetMinimumPaneSize(20)
     
     def OnPosChanging(self, event):
-        self.Refresh()
+        self.Refresh(False)
 
     def createMenuBar(self):
         menubar = wx.MenuBar()
