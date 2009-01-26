@@ -1033,7 +1033,7 @@ class BlackCatFrame(wx.Frame):
         dlg.Destroy()
 
     def OnQuit(self, event):
-        pass
+        self.Close() 
 
 class CharValidator(wx.PyValidator):
 
