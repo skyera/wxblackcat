@@ -4,6 +4,9 @@ import sys
 import string
 import copy
 import time
+import logging
+import pprint
+import math
 
 try:
     import psyco
@@ -25,9 +28,13 @@ except ImportError, e:
     print e
     sys.exit()
 
-import logging
-import pprint
-import math
+LIMIT = 1e-6
+
+def equal(f1, f2):
+    if abs(f1 - f2) < LIMIT:
+        return True
+    else:
+        return False
 
 class EndFileException(Exception):
     def __init__(self, args=None):
@@ -48,7 +55,7 @@ class Point:
         return s
 
     def __eq__(self, other):
-        return self.x == other.x and self.y == other.y and self.z == other.z
+        return equal(self.x, other.x) and equal(self.y, other.y) and equal(self.z, other.z)
 
     def __cmp__(self, other):
         if self == other:
@@ -100,7 +107,7 @@ class Line:
         y = self.p2.y - self.p1.y 
         x = self.p1.x - self.p1.x
         
-        if x == 0.0:
+        if equal(x, 0.0):
             return 0.0
         else:
             k = y / x
@@ -192,7 +199,7 @@ class Facet:
         L2 = []
         for i in range(3):
             p = self.points[i]
-            if p.z == z:
+            if equal(p.z, z):
                 L1.append(i)
             else:
                 L2.append(i)
@@ -219,7 +226,11 @@ class Facet:
         if line:
             length = line.length()
             if not length > 0:
-                print line, length
+                print '*' * 40
+                print 'n', n
+                print 'warning', line, length
+                print 'facet', self
+                print 'z', z
         return line
 
     def intersect_0_vertex(self, points, z):
