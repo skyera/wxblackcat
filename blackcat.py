@@ -282,15 +282,12 @@ class CadModel:
     def nextLayer(self):
         n = len(self.layers)
         self.currLayer = (self.currLayer + 1) % len(self.layers)
-        print 'currLayer', self.currLayer, '/', n
     
     def prevLayer(self):
         n = len(self.layers)
         self.currLayer -= 1
         if self.currLayer == -1:
             self.currLayer = len(self.layers) -1
-
-        print 'currLayer', self.currLayer, '/', n
 
     def getCurrLayer(self):
         return self.layers[self.currLayer]
@@ -827,7 +824,8 @@ class ControlPanel(wx.Panel):
         sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
 
         items = [("Layer hight", "height"), ("Pitch", "pitch"), ("Speed", "speed"), 
-                 ("Direction", "direction")]
+                 ("Direction", "direction"), ("Num Layers", "nolayer"),
+                 ("Current Layer", "currlayer")]
         flex = wx.FlexGridSizer(rows=len(items), cols=2, hgap=2, vgap=2)
         for label, key in items:
             lblCtrl = wx.StaticText(self, label=label)
@@ -845,10 +843,17 @@ class ControlPanel(wx.Panel):
     def setSliceInfo(self, info):
         for key in self.txtFields.keys():
             txt = self.txtFields[key]
-            value = info[key]
+            value = info.get(key, "")
             txt.SetValue(value)
+    
+    def setNoLayer(self, nolayer):
+        self.txtFields["nolayer"].SetValue(str(nolayer))
+
+    def setCurrLayer(self, curr):
+        self.txtFields["currlayer"].SetValue(str(curr))
 
 sliceParameter = {"height":"0.4", "pitch":"0.38", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
+
 
 class BlackCatFrame(wx.Frame):
 
@@ -885,18 +890,17 @@ class BlackCatFrame(wx.Frame):
     def OnNextLayer(self, event):
         if not self.cadmodel.sliced:
             return
-        print 'next'
-        layer = self.cadmodel.nextLayer()
+        self.cadmodel.nextLayer()
+        self.leftPanel.setCurrLayer(self.cadmodel.currLayer)
         self.Refresh()
-        #self.pathCanvas.Refresh()
 
     def OnPrevLayer(self, event):
         if not self.cadmodel.sliced:
             return
 
-        layer = self.cadmodel.prevLayer()
+        self.cadmodel.prevLayer()
+        self.leftPanel.setCurrLayer(self.cadmodel.currLayer)
         self.Refresh()
-        #self.pathCanvas.Refresh()
 
     def createPanel(self):
         self.leftPanel  = ControlPanel(self)
@@ -995,7 +999,10 @@ class BlackCatFrame(wx.Frame):
                 self.modelCanvas.setModel(self.cadmodel)
                 self.leftPanel.setDimension(self.cadmodel.dimension)
                 self.leftPanel.setSliceInfo(sliceParameter)
+                self.leftPanel.setNoLayer(len(self.cadmodel.layers))
+                self.leftPanel.setCurrLayer(self.cadmodel.currLayer)
                 self.pathCanvas.setModel(self.cadmodel)
+                
             else:
                 self.Refresh()
                 wx.MessageBox("no layers", "Warning")
