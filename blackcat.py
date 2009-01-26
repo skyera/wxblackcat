@@ -277,6 +277,7 @@ class CadModel:
         self.loaded = False
         self.currLayer = -1
         self.sliced = False
+        self.dimension = {}
     
     def nextLayer(self):
         n = len(self.layers)
@@ -400,21 +401,13 @@ class CadModel:
             self.xsize = self.maxx - self.minx
             self.ysize = self.maxy - self.miny
             self.zsize = self.maxz - self.minz
-            
+
             self.diameter = math.sqrt(self.xsize * self.xsize + self.ysize * self.ysize + self.zsize * self.zsize)
 
             # Center
             self.xcenter = (self.minx + self.maxx) / 2
             self.ycenter = (self.miny + self.maxy) / 2
             self.zcenter = (self.minz + self.maxz) / 2
-
-            self.logger.debug(self.minx)
-            self.logger.debug(self.maxx)
-            self.logger.debug(self.miny)
-            self.logger.debug(self.maxy)
-            self.logger.debug(self.minz)
-            self.logger.debug(self.maxz)
-    
 
     def open(self, filename):
         try:
@@ -440,6 +433,7 @@ class CadModel:
             self.logger.debug("no of facets:" + str(len(self.facets)))
             self.oldfacets = copy.deepcopy(self.facets)
             self.sliced = False
+            self.setOldDimension()
             return True
         else:
             return False
@@ -461,11 +455,25 @@ class CadModel:
             self.currLayer = 0
             self.sliced = True
             self.currLayer = 0
+            self.setNewDimension()
             return True
         else:
             self.sliced = False
             return False
     
+    def setOldDimension(self):
+        self.dimension["oldx"] = str(self.xsize)
+        self.dimension["oldy"] = str(self.ysize)
+        self.dimension["oldz"] = str(self.zsize)
+        self.dimension["newx"] = ""
+        self.dimension["newy"] = ""
+        self.dimension["newz"] = ""
+
+    def setNewDimension(self):
+        self.dimension["newx"] = str(self.xsize)
+        self.dimension["newy"] = str(self.ysize)
+        self.dimension["newz"] = str(self.zsize)
+
     def scaleModel(self, factor):
         self.facets = []
         for facet in self.oldfacets:
@@ -749,6 +757,51 @@ class ModelCanvas(glcanvas.GLCanvas):
         glEnable(GL_COLOR_MATERIAL)
         glMaterial(GL_FRONT, GL_SHININESS, 50)#96)
 
+
+class DimensionPanel(wx.Panel):
+    
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent)
+        self.txtFields = {}
+        self.createControls()
+
+    def createControls(self):
+        main = wx.BoxSizer(wx.VERTICAL)
+        box = wx.StaticBox(self, label="Dimension") 
+        sizer = wx.StaticBoxSizer(box, wx.HORIZONTAL)
+        main.Add(sizer, 1, wx.EXPAND|wx.ALL, 5)
+        self.SetSizer(main)
+        
+        label = "Original"
+        items = [("X", "oldx"), ("Y", "oldy"), ("Z", "oldz")]
+        s1 = self.createDimension(label, items)
+        sizer.Add(s1, 1, wx.EXPAND|wx.RIGHT, 5)
+
+        label = "Scaled"
+        items = [("X", 'newx'), ('Y', 'newy'), ('Z', 'newz')]
+        s2 = self.createDimension(label, items)
+        sizer.Add(s2, 1, wx.EXPAND)
+
+    def createDimension(self, label, items):
+        sizer = wx.BoxSizer(wx.VERTICAL) 
+        caption = wx.StaticText(self, label=label)
+        sizer.Add(caption, 0, wx.ALIGN_CENTER)
+
+        flex = wx.FlexGridSizer(rows=len(items), cols=2, hgap=2, vgap=2)
+        for label, key in items:
+            lblCtrl = wx.StaticText(self, label=label)
+            txtCtrl = wx.TextCtrl(self, size=(70, -1), style=wx.TE_READONLY)
+            flex.Add(lblCtrl)
+            flex.Add(txtCtrl, 0, wx.EXPAND)
+            self.txtFields[key] = txtCtrl
+        sizer.Add(flex, 0, wx.EXPAND)
+        flex.AddGrowableCol(1, 1)
+        return sizer
+
+    def setValues(self, dimension):
+        for key in dimension:
+            self.txtFields[key].SetValue(dimension[key])
+
 class ControlPanel(wx.Panel):
     
     def __init__(self, parent):
@@ -761,46 +814,46 @@ class ControlPanel(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
         mainsizer.Add(sizer, 0, wx.ALL, 10)
         self.SetSizer(mainsizer)
-        s = self.makeDimensionBox()
-        sizer.Add(s, 0, wx.ALIGN_CENTER)
+        self.dimensionPanel = DimensionPanel(self)
+        sizer.Add(self.dimensionPanel, 0, wx.EXPAND|wx.ALIGN_CENTER)
+        
         sizer.Add((10,10)) 
         sliceSizer = self.createSliceInfo()
-        sizer.Add(sliceSizer, 0, 0)
-
-    def makeDimensionBox(self):
-        box = wx.StaticBox(self, -1, "Dimension")
-        boxsizer = wx.StaticBoxSizer(box, wx.VERTICAL)
-        flex = wx.FlexGridSizer(rows=3, cols=2, hgap=2, vgap=2)
-        self.sizetxt = []
-        for label in ("X", "Y", "Z"):
-            lbl = wx.StaticText(self, -1, label=label)
-            txt = wx.TextCtrl(self, -1, size=(90,-1), style=wx.TE_READONLY)
-            self.sizetxt.append(txt)
-            flex.Add(lbl, 0, wx.RIGHT, 5)
-            flex.Add(txt, 1, wx.EXPAND)
-        boxsizer.Add(flex, 0, 0)
-        #flex.AddGrowableCol(1, 1)
-        return boxsizer
+        sizer.Add(sliceSizer, 0, wx.EXPAND)
 
     def createSliceInfo(self):
-        box = wx.StaticBox(self, -1, "Slice parameters")
+        self.txtFields = {}
+        box = wx.StaticBox(self, -1, "Slice Info")
         sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
-        panel = SlicePanel(self, sliceParameter)
-        panel.disableTxt()
-        sizer.Add(panel, 0, wx.ALL, 5)
+
+        items = [("Layer hight", "height"), ("Pitch", "pitch"), ("Speed", "speed"), 
+                 ("Direction", "direction")]
+        flex = wx.FlexGridSizer(rows=len(items), cols=2, hgap=2, vgap=2)
+        for label, key in items:
+            lblCtrl = wx.StaticText(self, label=label)
+            txtCtrl = wx.TextCtrl(self, size=(70, -1), style=wx.TE_READONLY)
+            flex.Add(lblCtrl)
+            flex.Add(txtCtrl, 0, wx.EXPAND)
+            self.txtFields[key] = txtCtrl
+        flex.AddGrowableCol(1, 1)
+        sizer.Add(flex, 1, wx.EXPAND)
         return sizer
 
-    def setDimension(self, x, y, z):
-        self.sizetxt[0].SetValue(str(x))
-        self.sizetxt[1].SetValue(str(y))
-        self.sizetxt[2].SetValue(str(z))
+    def setDimension(self, dimension): 
+        self.dimensionPanel.setValues(dimension)
+
+    def setSliceInfo(self, info):
+        for key in self.txtFields.keys():
+            txt = self.txtFields[key]
+            value = info[key]
+            txt.SetValue(value)
 
 sliceParameter = {"height":"0.4", "pitch":"0.38", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
 
 class BlackCatFrame(wx.Frame):
 
     def __init__(self):
-        wx.Frame.__init__(self, None, -1, "Black Cat", size=(800,480))
+        wx.Frame.__init__(self, None, -1, "Black Cat", size=(800, 600))
         self.createMenuBar()
         self.createToolbar()
         self.cadmodel = CadModel()
@@ -923,7 +976,7 @@ class BlackCatFrame(wx.Frame):
             if ok:
                 self.modelCanvas.setModel(self.cadmodel)
                 self.pathCanvas.setModel(None)
-                self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
+                self.leftPanel.setDimension(self.cadmodel.dimension)
             else:
                 wx.MessageBox("Cannot open " + path, 'Error')
         dlg.Destroy()
@@ -940,7 +993,8 @@ class BlackCatFrame(wx.Frame):
             ok = self.cadmodel.slice(sliceParameter)
             if ok:
                 self.modelCanvas.setModel(self.cadmodel)
-                self.leftPanel.setDimension(self.cadmodel.xsize, self.cadmodel.ysize, self.cadmodel.zsize)
+                self.leftPanel.setDimension(self.cadmodel.dimension)
+                self.leftPanel.setSliceInfo(sliceParameter)
                 self.pathCanvas.setModel(self.cadmodel)
             else:
                 self.Refresh()
