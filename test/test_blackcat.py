@@ -93,5 +93,13 @@ class CadModelTest(unittest.TestCase):
         
         ok = line1.onSameLine(line2)
         self.assert_(ok)
+    
+    def testPoint(self):
+        p1 = Point(1.0/3, 2.0/3, 3.2)
+        p2 = Point(1.0/3, 2.0/3, 3.2)
+        ok = (p1 == p2)
+        self.assert_(ok)
+        ok = hash(p1) == hash(p2)
+        self.assert_(ok)
 if __name__ == '__main__':
     unittest.main()
