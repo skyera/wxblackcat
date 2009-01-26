@@ -820,7 +820,7 @@ class ControlPanel(wx.Panel):
         mainsizer = wx.BoxSizer(wx.VERTICAL)
         
         sizer = wx.BoxSizer(wx.VERTICAL)
-        mainsizer.Add(sizer, 0, wx.ALL, 10)
+        mainsizer.Add(sizer, 1, wx.ALL|wx.EXPAND, 10)
         self.SetSizer(mainsizer)
         self.dimensionPanel = DimensionPanel(self)
         sizer.Add(self.dimensionPanel, 0, wx.EXPAND|wx.ALIGN_CENTER)
@@ -828,6 +828,16 @@ class ControlPanel(wx.Panel):
         sizer.Add((10,10)) 
         sliceSizer = self.createSliceInfo()
         sizer.Add(sliceSizer, 0, wx.EXPAND)
+
+        #
+        sizer.Add((10, 10), 1, wx.ALL|wx.EXPAND, 5)
+        img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
+        w = img.GetWidth()
+        h = img.GetHeight()
+        factor = 0.8
+        img2 = img.Scale(w * factor, h * factor)
+        sb = wx.StaticBitmap(self, -1, wx.BitmapFromImage(img2), style=wx.SUNKEN_BORDER)
+        sizer.Add(sb)
 
     def createSliceInfo(self):
         self.txtFields = {}
