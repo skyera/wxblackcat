@@ -418,6 +418,7 @@ class CadModel:
             self.zcenter = (self.minz + self.maxz) / 2
 
     def open(self, filename):
+        start = time.time()
         try:
             f = open(filename) 
         except IOError, e:
@@ -442,12 +443,13 @@ class CadModel:
             self.oldfacets = copy.deepcopy(self.facets)
             self.sliced = False
             self.setOldDimension()
+            cpu = time.time() - start
+            print 'open cpu', cpu, 'secs'
             return True
         else:
             return False
 
     def slice(self, para):
-        print para
         self.height = float(para["height"])
         self.pitch = float(para["pitch"])
         self.speed = float(para["speed"])
@@ -512,7 +514,7 @@ class CadModel:
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
         cpu = time.time() - start
-        print 'cpu', cpu,'secs'
+        print 'slice cpu', cpu,'secs'
     
     def createOneLayer(self, z):
         layer = Layer()
@@ -1150,7 +1152,6 @@ class SlicePanel(wx.Panel):
 class ParaDialog(wx.Dialog):
 
     def __init__(self, parent):
-        #wx.Dialog.__init__(self, parent, -1, "Slice parameters", size=(200, 200))
         pre = wx.PreDialog()
         pre.SetExtraStyle(wx.WS_EX_VALIDATE_RECURSIVELY)
         pre.Create(parent, -1, "Slice parameters")
