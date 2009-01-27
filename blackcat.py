@@ -987,6 +987,7 @@ class BlackCatFrame(wx.Frame):
         info.Copyright = "(C) 2009"
         info.Description = "Slice CAD model"
         info.Developers = ["Zhigang Liu"]
+        info.License = "GPL v2"
         wx.AboutBox(info)
 
     def createMenu(self, menuData):
