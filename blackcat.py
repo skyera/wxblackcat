@@ -1,3 +1,7 @@
+# Author : Zhigang Liu
+# Date   : Jan 2009
+# License: General Public License 2 (GPL2) 
+
 import wx
 import os
 import sys
