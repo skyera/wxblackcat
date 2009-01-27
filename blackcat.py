@@ -443,7 +443,8 @@ class CadModel:
             self.oldfacets = copy.deepcopy(self.facets)
             self.sliced = False
             self.setOldDimension()
-            cpu = time.time() - start
+            cpu = '%.1f' % (time.time() - start)
+            
             print 'open cpu', cpu, 'secs'
             return True
         else:
@@ -513,7 +514,7 @@ class CadModel:
                 count += 1
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
-        cpu = time.time() - start
+        cpu = '%.1f' % (time.time() - start)
         print 'slice cpu', cpu,'secs'
     
     def createOneLayer(self, z):
@@ -900,10 +901,10 @@ class BlackCatFrame(wx.Frame):
         img_slice = wx.ArtProvider.GetBitmap(wx.ART_CDROM)
         img_next = wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN)
         img_prev = wx.ArtProvider.GetBitmap(wx.ART_GO_UP)
-        toolbar.AddLabelTool(self.ID_OPEN, 'open', img_open)
-        toolbar.AddLabelTool(self.ID_SLICE, 'slice', img_slice)
-        toolbar.AddLabelTool(self.ID_NEXT, 'next', img_next)
-        toolbar.AddLabelTool(self.ID_PREV, 'prev', img_prev)
+        toolbar.AddLabelTool(self.ID_OPEN, 'open', img_open, shortHelp='open file', longHelp='open CAD model')
+        toolbar.AddLabelTool(self.ID_SLICE, 'slice', img_slice, shortHelp='slice modal')
+        toolbar.AddLabelTool(self.ID_NEXT, 'next', img_next, shortHelp='next layer')
+        toolbar.AddLabelTool(self.ID_PREV, 'prev', img_prev, shortHelp='previous layer')
         toolbar.Realize()
 
         self.Bind(wx.EVT_TOOL, self.OnOpen, id=self.ID_OPEN)
