@@ -776,21 +776,19 @@ class DimensionPanel(wx.Panel):
         self.createControls()
 
     def createControls(self):
-        main = wx.BoxSizer(wx.VERTICAL)
         box = wx.StaticBox(self, label="Dimension") 
         sizer = wx.StaticBoxSizer(box, wx.HORIZONTAL)
-        main.Add(sizer, 1, wx.EXPAND|wx.ALL, 5)
-        self.SetSizer(main)
+        self.SetSizer(sizer)
         
         label = "Original"
         items = [("X", "oldx"), ("Y", "oldy"), ("Z", "oldz")]
         s1 = self.createDimension(label, items)
-        sizer.Add(s1, 1, wx.EXPAND|wx.RIGHT, 5)
+        sizer.Add(s1, 1, wx.EXPAND|wx.ALL, 2)
 
         label = "Scaled"
         items = [("X", 'newx'), ('Y', 'newy'), ('Z', 'newz')]
         s2 = self.createDimension(label, items)
-        sizer.Add(s2, 1, wx.EXPAND)
+        sizer.Add(s2, 1, wx.EXPAND|wx.ALL, 2)
 
     def createDimension(self, label, items):
         sizer = wx.BoxSizer(wx.VERTICAL) 
@@ -824,14 +822,17 @@ class ControlPanel(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
         mainsizer.Add(sizer, 1, wx.ALL|wx.EXPAND, 10)
         self.SetSizer(mainsizer)
+        
+        # Dimension panel
         self.dimensionPanel = DimensionPanel(self)
         sizer.Add(self.dimensionPanel, 0, wx.EXPAND|wx.ALIGN_CENTER)
         
+        # Slice info panel
         sizer.Add((10,10)) 
         sliceSizer = self.createSliceInfo()
         sizer.Add(sliceSizer, 0, wx.EXPAND)
 
-        #
+        # image
         sizer.Add((10, 10), 1, wx.ALL|wx.EXPAND, 5)
         img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
         w = img.GetWidth()
@@ -857,7 +858,7 @@ class ControlPanel(wx.Panel):
             flex.Add(txtCtrl, 0, wx.EXPAND)
             self.txtFields[key] = txtCtrl
         flex.AddGrowableCol(1, 1)
-        sizer.Add(flex, 1, wx.EXPAND)
+        sizer.Add(flex, 1, wx.EXPAND|wx.ALL, 2)
         return sizer
 
     def setDimension(self, dimension): 
