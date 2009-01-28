@@ -12,6 +12,7 @@ import logging
 import pprint
 import math
 import cProfile
+import random
 
 try:
     import psyco
@@ -113,7 +114,7 @@ class Line:
         diffx = self.p2.x - self.p1.x
         
         if equal(diffx, 0.0):
-            return 0.0
+            return sys.maxint
         else:
             k = diffy / diffx
             return k
@@ -262,57 +263,102 @@ class Layer:
         glNewList(self.layerListId, GL_COMPILE)
         glColor(0, 0, 1)
         glBegin(GL_LINES)
-        for line in self.lines:
-            for p in [line.p1, line.p2]:
-                glVertex3f(p.x, p.y, p.z)
+        #for line in self.lines:
+        #    for p in [line.p1, line.p2]:
+        #        glVertex3f(p.x, p.y, p.z)
+        for loop in self.loops:
+            r = random.random()
+            g = random.random()
+            b = random.random()
+            glColor(r, g, b)
+            for line in loop:
+                for p in [line.p1, line.p2]:
+                    glVertex3f(p.x, p.y, p.z)
         glEnd()
         glEndList()
         return self.layerListId
-
-    def mergeLines(self):
-        return
+    
+    def createLoops(self):
         lines = copy.deepcopy(self.lines)
+        self.loops = []
         while len(lines) != 0:
+            loop = []
             line = lines.pop()
+            loop.append(line)
+            start = line.p1
+            p2 = line.p2
+            while True:
+                for aline in lines:
+                    if p2 == aline.p1:
+                        p1 = aline.p1
+                        p2 = aline.p2
+                        break
+                    elif p2 == aline.p2:
+                        p1 = aline.p2
+                        p2 = aline.p1
+                        break
+                lines.remove(aline)
+                loop.append(Line(p1, p2))
+                if p2 == start:
+                    break
+            self.moveLines(loop)
+            nloop = self.mergeLines(loop)
+            self.loops.append(nloop)
+        print 'no of loops', len(self.loops)            
+    
+    def moveLines(self, loop):
+        tail = loop[-1]
+        k1 = tail.slope()
+        head = loop[0]
+        k2 = head.slope()
+        rmList = []
+        if equal(k1, k2):
+            for aline in loop:
+                k = aline.slope()
+                if equal(k, k1):
+                    rmList.append(aline)
+                else:
+                    break
+            for it in rmList:
+                loop.remove(it)
+            for it in rmList:
+                loop.append(it)
+        
+        k1 = loop[0].slope()
+        k2 = loop[-1].slope()
+        assert k1 != k2
+
+    def mergeLines(self, loop):
+        n1 = len(loop)
+        #print '-'*60
+        #for line in loop:
+        #    print line
+        nloop = []
+        
+        while len(loop) != 0:
+            
+            line = loop.pop(0) 
+            k1 = line.slope()
             p1 = line.p1
             p2 = line.p2
-            L1 = []
-            for it in lines:
-                if p1 in (it.p1, it.p2):
-                    L1.append(it)
-
-            adj1 = self.findAdjLine(p1, line, L1)
-            if adj1:
-                adjLine, start = adj1
-                lines.remove(adjLine)
-            else:
-                start = p1
             
-            L2 = []
-            for it in lines:
-                if p2 in (it.p1, it.p2):
-                    L2.append(it)
-
-            adj2 = self.findAdjLine(p2, line, L2)
-            if adj2:
-                adjLine, end = adj2 
-                lines.remove(adjLine)
-            else:
-                end = p2
-            newline = Line(start, end)
-
-    def findAdjLine(self, point, line, items):
-        for it in items:
-            k1 = line.slope()
-            k2 = it.slope()
-            if equal(k1, k2):
-                if point == it.p1:
-                    p = it.p2
+            rmList = []            
+            for aline in loop:
+                k2 = aline.slope()
+                if k1 != k2:
+                    p2 = aline.p1
+                    break
                 else:
-                    assert point == it.p2
-                    p = it.p1
-                return (it, p)
-        return None            
+                    p2 = aline.p2
+                    rmList.append(aline)
+            
+            for it in rmList:
+                loop.remove(it)
+            nloop.append(Line(p1, p2))
+        print n1, len(nloop)
+        #for line in nloop:
+        #    print line
+        return nloop
 
 class CadModel:
     def __init__(self):
@@ -559,7 +605,7 @@ class CadModel:
         layer.z = z
         layer.lines = lines
         if not layer.empty():
-            layer.mergeLines()
+            layer.createLoops()
         return layer
     
     def createGLModelList(self):
