@@ -33,7 +33,7 @@ except ImportError, e:
     print e
     sys.exit()
 
-LIMIT = 1e-6
+LIMIT = 1e-8
 
 def equal(f1, f2):
     if abs(f1 - f2) < LIMIT:
@@ -109,13 +109,13 @@ class Line:
         return math.sqrt(sum)
     
     def slope(self):
-        y = self.p2.y - self.p1.y 
-        x = self.p1.x - self.p1.x
+        diffy = self.p2.y - self.p1.y 
+        diffx = self.p2.x - self.p1.x
         
-        if equal(x, 0.0):
+        if equal(diffx, 0.0):
             return 0.0
         else:
-            k = y / x
+            k = diffy / diffx
             return k
 
     def __hash__(self):
@@ -270,38 +270,48 @@ class Layer:
         return self.layerListId
 
     def mergeLines(self):
+        return
         lines = copy.deepcopy(self.lines)
         while len(lines) != 0:
             line = lines.pop()
             p1 = line.p1
             p2 = line.p2
             L1 = []
-            L2 = []
             for it in lines:
                 if p1 in (it.p1, it.p2):
                     L1.append(it)
 
+            adj1 = self.findAdjLine(p1, line, L1)
+            if adj1:
+                adjLine, start = adj1
+                lines.remove(adjLine)
+            else:
+                start = p1
+            
+            L2 = []
+            for it in lines:
                 if p2 in (it.p1, it.p2):
                     L2.append(it)
-            
-            adj1 = self.findAdjLine(line, L1)
-            if adj1:
-                print line
-                lines.remove(adj1)
-                print adj1
 
-            adj2 = self.findAdjLine(line, L2)
+            adj2 = self.findAdjLine(p2, line, L2)
             if adj2:
-                print line
-                lines.remove(adj2)
-                print adj2
+                adjLine, end = adj2 
+                lines.remove(adjLine)
+            else:
+                end = p2
+            newline = Line(start, end)
 
-    def findAdjLine(self, line, items):
+    def findAdjLine(self, point, line, items):
         for it in items:
             k1 = line.slope()
             k2 = it.slope()
             if equal(k1, k2):
-                return it
+                if point == it.p1:
+                    p = it.p2
+                else:
+                    assert point == it.p2
+                    p = it.p1
+                return (it, p)
         return None            
 
 class CadModel:
