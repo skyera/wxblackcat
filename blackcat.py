@@ -11,6 +11,7 @@ import time
 import logging
 import pprint
 import math
+import cProfile
 
 try:
     import psyco
@@ -122,18 +123,6 @@ class Line:
         L.sort()
         t = tuple(L)
         return hash(t)
-
-    def onSameLine(self, other):
-        for p in (self.p1, self.p2):
-            if p in (other.p1, other.p2):
-                adj = True
-                k1 = self.slope()
-                k2 = other.slope()
-                if k1 == k2:
-                    return True
-        else:
-            adj = False
-            return False
 
 def intersect(x1, y1, x2, y2, x):
     ''' compute y'''
@@ -280,11 +269,40 @@ class Layer:
         glEndList()
         return self.layerListId
 
-    def meltLines(self):
-        while len(self.lines) != 0:
-            line = self.lines.pop()
-            for line in self.lines:
-                pass 
+    def mergeLines(self):
+        lines = copy.deepcopy(self.lines)
+        while len(lines) != 0:
+            line = lines.pop()
+            p1 = line.p1
+            p2 = line.p2
+            L1 = []
+            L2 = []
+            for it in lines:
+                if p1 in (it.p1, it.p2):
+                    L1.append(it)
+
+                if p2 in (it.p1, it.p2):
+                    L2.append(it)
+            
+            adj1 = self.findAdjLine(line, L1)
+            if adj1:
+                print line
+                lines.remove(adj1)
+                print adj1
+
+            adj2 = self.findAdjLine(line, L2)
+            if adj2:
+                print line
+                lines.remove(adj2)
+                print adj2
+
+    def findAdjLine(self, line, items):
+        for it in items:
+            k1 = line.slope()
+            k2 = it.slope()
+            if equal(k1, k2):
+                return it
+        return None            
 
 class CadModel:
     def __init__(self):
@@ -530,6 +548,8 @@ class CadModel:
                 lines.add(line)
         layer.z = z
         layer.lines = lines
+        if not layer.empty():
+            layer.mergeLines()
         return layer
     
     def createGLModelList(self):
