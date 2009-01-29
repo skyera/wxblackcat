@@ -300,22 +300,30 @@ class Layer:
             start = line.p1
             p2 = line.p2
             while True:
+                found = False
                 for aline in lines:
                     if p2 == aline.p1:
                         p1 = aline.p1
                         p2 = aline.p2
+                        found = True
                         break
                     elif p2 == aline.p2:
                         p1 = aline.p2
                         p2 = aline.p1
+                        found = True
                         break
-                lines.remove(aline)
-                loop.append(Line(p1, p2))
-                if p2 == start:
+                if found:        
+                    lines.remove(aline)
+                    loop.append(Line(p1, p2))
+                    if p2 == start:
+                        break
+                else:
+                    print 'error', 'lines', len(lines)
                     break
-            self.moveLines(loop)
-            nloop = self.mergeLines(loop)
-            self.loops.append(nloop)
+            if found:
+                self.moveLines(loop)
+                nloop = self.mergeLines(loop)
+                self.loops.append(nloop)
     
     def moveLines(self, loop):
         tail = loop[-1]
@@ -391,12 +399,15 @@ class Layer:
         for loop in self.loops:
             for line in loop:
                 x = self.intersect(y, line, loop)
-                if x:
+                if x != None:
                     L.append(x)
         L.sort()                    
         L2 = []
         n = len(L)
-        assert n % 2 == 0
+        ok = (n % 2 == 0)
+        if not ok:
+            print 'n', n
+            assert ok
 
         for i in range(0, n, 2):
             x1 = L[i]
@@ -438,7 +449,7 @@ class Layer:
         y1 = line.p1.y
         x2 = line.p2.x
         y2 = line.p2.y
-
+        
         if equal(x1, x2):
             x = x1
             return x
