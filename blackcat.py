@@ -380,6 +380,48 @@ class Layer:
             for line in loop:
                 pass
 
+    
+    def intersect(self, y, line, loop):
+        y1 = line.p1.y
+        y2 = line.p2.y
+        if self.isIntersect(y1, y2, y):
+            count = 0
+            for ay in (y1, y2):
+                if equal(y1, ay):
+                    count += 1
+            
+            if count == 0:
+                self.intersect_0(y, line)
+            elif count == 1:
+                self.intersect_1(y, line, loop)
+    
+    def intersect_0(self, y, line):
+        x1 = line.p1.x
+        y1 = line.p1.y
+        x2 = line.p2.x
+        y2 = line.p2.y
+
+        if equal(x1, x2):
+            x = x1
+            return x
+        else:
+           x = (y -  y1) * (x2 - x1) / (y2 - y1) + x1
+
+        return x
+
+    def intersect_1(self, y, line, loop):
+        pass
+
+    def findAdjLine(self, y, line, loop):
+        for it in loop:
+            pass
+
+    def isIntersect(self, y1, y2, y):
+        if (y1 - y) * (y2 - y) < 0.0:
+            return True
+        else:
+            return False
+
 
 class CadModel:
     def __init__(self):
