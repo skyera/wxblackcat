@@ -273,6 +273,13 @@ class Layer:
             for line in loop:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
+        
+        glColor(0, 0, 1)
+        for scanline in self.scanlines:
+            for line in scanline:
+                for p in [line.p1, line.p2]:
+                    glVertex3f(p.x, p.y, p.z)
+
         glEnd()
         glEndList()
         return self.layerListId
@@ -281,6 +288,7 @@ class Layer:
         self.lines = lines
         self.createLoops()
         self.calcDimension()             
+        self.createScanlines()
     
     def createLoops(self):
         lines = self.lines
@@ -370,30 +378,60 @@ class Layer:
         self.maxy = max(ylist)
     
     def createScanlines(self):
-        y = self.miny + pitch
+        self.scanlines = []
+        y = self.miny + self.pitch
         while y < self.maxy:
-
-            y += pitch
+            scanline = self.createOneScanline(y)
+            if len(scanline) != 0:
+                self.scanlines.append(scanline)
+            y += self.pitch
     
     def createOneScanline(self, y):
+        L = []
         for loop in self.loops:
             for line in loop:
-                pass
+                x = self.intersect(y, line, loop)
+                if x:
+                    L.append(x)
+        L.sort()                    
+        L2 = []
+        n = len(L)
+        assert n % 2 == 0
 
+        for i in range(0, n, 2):
+            x1 = L[i]
+            x2 = L[i + 1]
+            p1 = Point(x1, y, self.z)
+            p2 = Point(x2, y, self.z)
+            line = Line(p1, p2)
+            L2.append(line)
+        return L2
     
     def intersect(self, y, line, loop):
         y1 = line.p1.y
         y2 = line.p2.y
         if self.isIntersect(y1, y2, y):
             count = 0
-            for ay in (y1, y2):
-                if equal(y1, ay):
-                    count += 1
+            if equal(y, y1):
+                count += 1
+                p = line.p1
+
+            if equal(y, y2):
+                count += 1
+                p = line.p2
             
             if count == 0:
-                self.intersect_0(y, line)
+                x = self.intersect_0(y, line)
             elif count == 1:
-                self.intersect_1(y, line, loop)
+                x = self.intersect_1(y, p, line, loop)
+            elif count == 2:
+                x = None
+
+            return x
+        else:
+            return None
+
+                
     
     def intersect_0(self, y, line):
         x1 = line.p1.x
@@ -409,12 +447,21 @@ class Layer:
 
         return x
 
-    def intersect_1(self, y, line, loop):
-        pass
-
-    def findAdjLine(self, y, line, loop):
+    def intersect_1(self, y, point, line, loop):
+        L = []
         for it in loop:
-            pass
+            if point in (it.p1, it.p2):
+                L.append(it)
+        assert len(L) == 2
+        assert line in L
+        k1 = L[0].slope()
+        k2 = L[1].slope()
+        result = k1 * k2
+        
+        if result < 0.0:
+            return None
+        else:
+            return point.x     
 
     def isIntersect(self, y1, y2, y):
         if (y1 - y) * (y2 - y) < 0.0:
