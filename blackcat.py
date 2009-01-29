@@ -252,8 +252,10 @@ class Facet:
 
 class Layer:
 
-    def __init__(self):
+    def __init__(self, z, pitch):
         self.lines = []
+        self.z = z
+        self.pitch = pitch
 
     def empty(self):
         return len(self.lines) == 0
@@ -263,9 +265,6 @@ class Layer:
         glNewList(self.layerListId, GL_COMPILE)
         glColor(0, 0, 1)
         glBegin(GL_LINES)
-        #for line in self.lines:
-        #    for p in [line.p1, line.p2]:
-        #        glVertex3f(p.x, p.y, p.z)
         for loop in self.loops:
             r = random.random()
             g = random.random()
@@ -277,9 +276,14 @@ class Layer:
         glEnd()
         glEndList()
         return self.layerListId
+
+    def setLines(self, lines):
+        self.lines = lines
+        self.createLoops()
+        self.calcDimension()             
     
     def createLoops(self):
-        lines = copy.deepcopy(self.lines)
+        lines = self.lines
         self.loops = []
         while len(lines) != 0:
             loop = []
@@ -304,7 +308,6 @@ class Layer:
             self.moveLines(loop)
             nloop = self.mergeLines(loop)
             self.loops.append(nloop)
-        print 'no of loops', len(self.loops)            
     
     def moveLines(self, loop):
         tail = loop[-1]
@@ -330,9 +333,6 @@ class Layer:
 
     def mergeLines(self, loop):
         n1 = len(loop)
-        #print '-'*60
-        #for line in loop:
-        #    print line
         nloop = []
         
         while len(loop) != 0:
@@ -355,10 +355,31 @@ class Layer:
             for it in rmList:
                 loop.remove(it)
             nloop.append(Line(p1, p2))
-        print n1, len(nloop)
-        #for line in nloop:
-        #    print line
+        head = nloop[0]
+        tail = nloop[-1]
+        assert head.p1 == tail.p2
         return nloop
+
+    def calcDimension(self):
+        ylist = []
+        for loop in self.loops:
+            for line in loop:
+                ylist.append(line.p1.y)
+                ylist.append(line.p2.y)
+        self.miny = min(ylist)                
+        self.maxy = max(ylist)
+    
+    def createScanlines(self):
+        y = self.miny + pitch
+        while y < self.maxy:
+
+            y += pitch
+    
+    def createOneScanline(self, y):
+        for loop in self.loops:
+            for line in loop:
+                pass
+
 
 class CadModel:
     def __init__(self):
@@ -588,7 +609,7 @@ class CadModel:
         while z < self.maxz:
             layer = self.createOneLayer(z)
             z += self.height
-            if not layer.empty():
+            if layer:
                 count += 1
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
@@ -596,17 +617,18 @@ class CadModel:
         print 'slice cpu', cpu,'secs'
     
     def createOneLayer(self, z):
-        layer = Layer()
+        layer = Layer(z, self.pitch)
         lines = set()
         for facet in self.facets:
             line = facet.intersect(z) 
             if line:
                 lines.add(line)
-        layer.z = z
-        layer.lines = lines
-        if not layer.empty():
-            layer.createLoops()
-        return layer
+        
+        if len(lines) != 0:
+            layer.setLines(lines)
+            return layer
+        else:
+            return None
     
     def createGLModelList(self):
         self.modelListId = 1000
