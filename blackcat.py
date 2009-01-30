@@ -415,13 +415,12 @@ class Layer:
                     if x not in L:
                         L.append(x)
         L.sort()                    
+        ok = (len(L) % 2 == 0)
+        if not ok:
+            L.pop(-1)
+
         L2 = []
         n = len(L)
-        ok = (n % 2 == 0)
-        if not ok:
-            print 'n', n
-            assert ok
-
         for i in range(0, n, 2):
             x1 = L[i]
             x2 = L[i + 1]
