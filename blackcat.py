@@ -414,10 +414,13 @@ class Layer:
                 if x != None:
                     if x not in L:
                         L.append(x)
+                    else:
+                        print x, 'in', L
         L.sort()                    
         ok = (len(L) % 2 == 0)
         if not ok:
-            L.pop(-1)
+            print 'error'
+            return []
 
         L2 = []
         n = len(L)
@@ -465,8 +468,7 @@ class Layer:
             return x
         else:
            x = (y -  y1) * (x2 - x1) / (y2 - y1) + x1
-
-        return x
+           return x
 
     def isPeak(self, y, point, lines):
         L = []
@@ -477,6 +479,7 @@ class Layer:
                 p = line.p1
             L.append(p)
         
+        assert L[0] != L[1]
         val = (L[0].y - y) * (L[1].y - y)
         if val > 0.0:
             return True
