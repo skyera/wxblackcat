@@ -274,13 +274,6 @@ class Layer:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
         
-        #glColor(0, 0, 1)
-        #for scanline in self.scanlines:
-        #    for line in scanline:
-        #        for p in [line.p1, line.p2]:
-        #            glVertex3f(p.x, p.y, p.z)
-
-        #glEnd()
         for chunk in self.chunks:
             r = random.random()
             g = random.random()
