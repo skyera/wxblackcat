@@ -536,12 +536,9 @@ class Layer:
                     line = nline 
                 else:
                     break
-            L = []                    
-            for scanline in scanlines:
-                if len(scanline) != 0:
-                    L.append(scanline)
-            scanlines = L                    
+            
             self.chunks.append(chunk)
+            scanlines = filter(lambda x: len(x) > 0, scanlines)
 
 class CadModel:
     def __init__(self):
@@ -1266,6 +1263,7 @@ class BlackCatFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
             self.statusbar.SetStatusText(path)
+            print 'open', path
             ok = self.cadmodel.open(path)
             if ok:
                 self.modelCanvas.setModel(self.cadmodel)
@@ -1284,6 +1282,7 @@ class BlackCatFrame(wx.Frame):
         result = dlg.ShowModal()
         if result == wx.ID_OK:
             sliceParameter =  dlg.getValues()
+            print 'slicing...'
             ok = self.cadmodel.slice(sliceParameter)
             if ok:
                 self.modelCanvas.setModel(self.cadmodel)
