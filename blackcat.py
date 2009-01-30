@@ -131,7 +131,7 @@ def intersect(x1, y1, x2, y2, x):
     return y
 
 def isIntersect(p1, p2, z):
-    if (p1.z - z) * (p2.z - z) < 0.0:
+    if (p1.z - z) * (p2.z - z) <= 0.0:
         return True
     else:
         return False
@@ -266,11 +266,15 @@ class Layer:
         glColor(0, 0, 1)
         glBegin(GL_LINES)
         for loop in self.loops:
-            r = random.random()
-            g = random.random()
-            b = random.random()
-            glColor(r, g, b)
+            #r = random.random()
+            #g = random.random()
+            #b = random.random()
+            #glColor(r, g, b)
             for line in loop:
+                r = random.random()
+                g = random.random()
+                b = random.random()
+                glColor(r, g, b)
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
         
@@ -386,6 +390,11 @@ class Layer:
         head = nloop[0]
         tail = nloop[-1]
         assert head.p1 == tail.p2
+        
+        for i in range(0, len(nloop) - 1):
+            k1 = nloop[i]
+            k2 = nloop[i + 1]
+            assert k1 != k2
         return nloop
 
     def calcDimension(self):
@@ -407,20 +416,19 @@ class Layer:
             y += self.pitch
     
     def createOneScanline(self, y):
-        L = []
+        L = set()
         for loop in self.loops:
+            head = loop[0]
+            tail = loop[-1]
+            assert head.p1 == tail.p2
             for line in loop:
                 x = self.intersect(y, line, loop)
                 if x != None:
-                    if x not in L:
-                        L.append(x)
-                    else:
-                        print x, 'in', L
+                    L.add(x)
+        L = list(L)                    
         L.sort()                    
         ok = (len(L) % 2 == 0)
-        if not ok:
-            print 'error'
-            return []
+        assert ok
 
         L2 = []
         n = len(L)
@@ -497,12 +505,13 @@ class Layer:
         peak = self.isPeak(y, point, L)
         
         if peak:
+            print 'peak'
             return None
         else:
             return point.x     
 
     def isIntersect(self, y1, y2, y):
-        if (y1 - y) * (y2 - y) < 0.0:
+        if (y1 - y) * (y2 - y) <= 0:
             return True
         else:
             return False
