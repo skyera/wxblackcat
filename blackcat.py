@@ -400,10 +400,8 @@ class Layer:
             for line in loop:
                 x = self.intersect(y, line, loop)
                 if x != None:
-                    ok = (x in L)
-                    if ok:
-                        print 'x in L'
-                    L.append(x)
+                    if x not in L:
+                        L.append(x)
         L.sort()                    
         L2 = []
         n = len(L)
