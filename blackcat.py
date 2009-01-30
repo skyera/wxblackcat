@@ -400,6 +400,9 @@ class Layer:
             for line in loop:
                 x = self.intersect(y, line, loop)
                 if x != None:
+                    ok = (x in L)
+                    if ok:
+                        print 'x in L'
                     L.append(x)
         L.sort()                    
         L2 = []
@@ -458,6 +461,21 @@ class Layer:
 
         return x
 
+    def isPeak(self, y, point, lines):
+        L = []
+        for line in lines:
+            if point == line.p1:
+                p = line.p2
+            else:
+                p = line.p1
+            L.append(p)
+        
+        val = (L[0].y - y) * (L[1].y - y)
+        if val > 0.0:
+            return True
+        else:
+            return False
+
     def intersect_1(self, y, point, line, loop):
         L = []
         for it in loop:
@@ -465,11 +483,10 @@ class Layer:
                 L.append(it)
         assert len(L) == 2
         assert line in L
-        k1 = L[0].slope()
-        k2 = L[1].slope()
-        result = k1 * k2
         
-        if result < 0.0:
+        peak = self.isPeak(y, point, L)
+        
+        if peak:
             return None
         else:
             return point.x     
