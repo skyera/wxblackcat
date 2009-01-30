@@ -455,8 +455,6 @@ class Layer:
         else:
             return None
 
-                
-    
     def intersect_0(self, y, line):
         x1 = line.p1.x
         y1 = line.p1.y
