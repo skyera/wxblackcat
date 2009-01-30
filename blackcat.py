@@ -266,15 +266,11 @@ class Layer:
         glColor(0, 0, 1)
         glBegin(GL_LINES)
         for loop in self.loops:
-            #r = random.random()
-            #g = random.random()
-            #b = random.random()
-            #glColor(r, g, b)
+            r = random.random()
+            g = random.random()
+            b = random.random()
+            glColor(r, g, b)
             for line in loop:
-                r = random.random()
-                g = random.random()
-                b = random.random()
-                glColor(r, g, b)
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
         
