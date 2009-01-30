@@ -274,12 +274,23 @@ class Layer:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
         
-        glColor(0, 0, 1)
-        for scanline in self.scanlines:
-            for line in scanline:
+        #glColor(0, 0, 1)
+        #for scanline in self.scanlines:
+        #    for line in scanline:
+        #        for p in [line.p1, line.p2]:
+        #            glVertex3f(p.x, p.y, p.z)
+
+        #glEnd()
+        for chunk in self.chunks:
+            r = random.random()
+            g = random.random()
+            b = random.random()
+            glColor(r, g, b)
+ 
+            for line in chunk:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
-
+        
         glEnd()
         glEndList()
         return self.layerListId
@@ -289,7 +300,8 @@ class Layer:
         self.createLoops()
         self.calcDimension()             
         self.createScanlines()
-    
+        self.createChunks()
+
     def createLoops(self):
         lines = self.lines
         self.loops = []
@@ -494,7 +506,44 @@ class Layer:
             return True
         else:
             return False
+    
+    def getOverlapLine(self, line, scanline):
+        y2 = scanline[0].p1.y
+        y1 = line.p1.y
+        
+        if not equal(y2 - y1, self.pitch):
+            return False
+        
+        for aline in scanline:
+            if aline.p1.x >= line.p2.x or aline.p2.x <= line.p1.x:
+                pass
+            else:
+                return aline
+        return False                
 
+    def createChunks(self):
+        self.chunks = []
+        scanlines = self.scanlines
+        while len(scanlines) != 0:
+            chunk = []
+            scanline = scanlines[0]
+            line = scanline.pop(0)
+            chunk.append(line)
+            
+            for scanline in scanlines[1:]:
+                nline = self.getOverlapLine(line, scanline)
+                if nline:
+                    chunk.append(nline)
+                    scanline.remove(nline)
+                    line = nline 
+                else:
+                    break
+            L = []                    
+            for scanline in scanlines:
+                if len(scanline) != 0:
+                    L.append(scanline)
+            scanlines = L                    
+            self.chunks.append(chunk)
 
 class CadModel:
     def __init__(self):
