@@ -337,7 +337,7 @@ class Layer:
                     for it in lines:
                         print it
                     print p2
-                    assert 0
+                    #assert 0
                     break
             
             if found:
