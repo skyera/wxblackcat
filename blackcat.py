@@ -330,9 +330,6 @@ class Layer:
                     if p2 == start:
                         break
                 else:
-                    print 'error'
-                    print len(lines)
-                    print p2
                     return False
             
             if found:
@@ -799,8 +796,9 @@ class CadModel:
                 print 'layer', count, '/', no
                 self.layers.append(layer)
                 z += self.height
-            else:
+            elif layer == "redo":
                 z = z * 0.99
+
                 
         print 'no of layers:', len(self.layers)                
         cpu = '%.1f' % (time.time() - start)
@@ -825,7 +823,7 @@ class CadModel:
             if ok:
                 return layer
             else:
-                return None
+                return "redo"
         else:
             return None
     
