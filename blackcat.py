@@ -78,9 +78,6 @@ class Point:
     def __hash__(self):
         s = '%.6f %.6f %.6f' % (self.x, self.y, self.z)
         return hash(s)
-        
-        #t = (self.x, self.y, self.z)
-        #return hash(t)
 
 
 class Line:
@@ -303,7 +300,6 @@ class Layer:
     def createLoops(self):
         lines = self.lines
 
-        self.savedlines = copy.deepcopy(lines)
         self.loops = []
         while len(lines) != 0:
             loop = []
@@ -335,7 +331,7 @@ class Layer:
                         break
                 else:
                     print 'error'
-                    print len(self.savedlines), len(lines)
+                    print len(lines)
                     print p2
                     return False
             
@@ -411,14 +407,6 @@ class Layer:
         self.miny = min(ylist)                
         self.maxy = max(ylist)
     
-    def calcDimension2(self):
-        ylist = []
-        for line in self.lines:
-            ylist.append(line.p1.y)
-            ylist.append(line.p2.y)
-        self.miny = min(ylist)
-        self.maxy = max(ylist)
-    
     def createScanlines(self):
         self.scanlines = []
         y = self.miny + self.pitch
@@ -443,38 +431,6 @@ class Layer:
         ok = (len(L) % 2 == 0)
         if not ok:
             L.pop(-1)
-
-        L2 = []
-        n = len(L)
-        for i in range(0, n, 2):
-            x1 = L[i]
-            x2 = L[i + 1]
-            p1 = Point(x1, y, self.z)
-            p2 = Point(x2, y, self.z)
-            line = Line(p1, p2)
-            L2.append(line)
-        return L2
-
-    def createOneScanline2(self, y):
-        L = []
-        lines = self.lines
-        for line in lines:
-            x = self.intersect(y, line, lines)
-            if x != None:
-
-                for it in L:
-                    if equal(x, it):
-                        break;
-                else:
-                    L.append(x)
-        
-        L.sort()                    
-        ok = (len(L) % 2 == 0)
-        if not ok:
-            for it in L:
-                print it
-            L.pop(-1)
-            assert ok
 
         L2 = []
         n = len(L)
