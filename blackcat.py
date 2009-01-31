@@ -539,13 +539,14 @@ class Layer:
         
         # Are they adjacent lines?
         distance = abs(y2 - y1)
-        if distance > 0 and distance <= self.pitch:
+        if equal(distance, self.pitch) or distance < self.pitch:
             for aline in scanline:
                 if aline.p1.x >= line.p2.x or aline.p2.x <= line.p1.x:
                     pass
                 else:
                     return aline
-        return False                
+        else:
+            return False                
 
     def createChunks(self):
         self.chunks = []
