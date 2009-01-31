@@ -445,6 +445,7 @@ class Layer:
         L.sort()                    
         ok = (len(L) % 2 == 0)
         if not ok:
+            print 'error', len(L)
             L.pop(-1)
 
         L2 = []
@@ -527,19 +528,22 @@ class Layer:
            x = (y -  y1) * (x2 - x1) / (y2 - y1) + x1
            return x
     
-    def isPeak(self, y, point, lines):
-        L = []
-        for line in lines:
-            if point == line.p1:
-                p = line.p2
-            elif point == line.p2:
-                p = line.p1
-            else:
-                assert 0
-            L.append(p)
-        
+    def isPeak(self, y, point, L):
+        if len(L) == 1:
+            return True
+
+        for it in L:
+            y1 = it.y
+            alist = filter(lambda p: p !=  it, L)
+            for ait in alist:
+                y2 = ait.y
+                val = (y1 - y) * (y2 - y)
+                if val > 0:
+                    return True
+        return False                    
+                
         n = len(L)
-        if n == 1:
+        if n % 2 == 1:
             return True
 
         val = (L[0].y - y) * (L[1].y - y)
@@ -551,11 +555,16 @@ class Layer:
     def intersect_1(self, y, point, line, loop):
         L = []
         for it in loop:
-            if point in (it.p1, it.p2):
-                L.append(it)
+            if point == it.p1:
+                L.append(it.p2)
+            elif point == it.p2:
+                L.append(it.p1)
         
-        n = len(L)
-        
+        if len(L) >= 2:
+            print point
+            print line
+            for it in L:
+                print it
         peak = self.isPeak(y, point, L)
         
         if peak:
