@@ -1,4 +1,4 @@
-# Author     : Zhigang Liu
+## Author     : Zhigang Liu
 # Date       : Jan 2009
 # License    : General Public License 2 (GPL2) 
 # Description: Slice STL CAD file layer by layer
@@ -292,10 +292,13 @@ class Layer:
 
     def setLines(self, lines):
         self.lines = lines
-        self.createLoops()
+        ok = self.createLoops()
+        if not ok:
+            return False
         self.calcDimension()             
         self.createScanlines()
         self.createChunks()
+        return True
 
     def createLoops(self):
         lines = self.lines
@@ -333,21 +336,15 @@ class Layer:
                 else:
                     print 'error'
                     print len(self.savedlines), len(lines)
-                    #for it in oldlines:
-                    #    print it
-                    #print '--'
-                    #for it in lines:
-                    #    print it
                     print p2
-                    #assert 0
-                    break
+                    return False
             
             if found:
                 self.moveLines(loop)
                 nloop = self.mergeLines(loop)
                 self.loops.append(nloop)
-            else:
-                self.loops.append(loop)
+        
+        return True                
     
     def moveLines(self, loop):
         tail = loop[-1]
@@ -445,7 +442,6 @@ class Layer:
         L.sort()                    
         ok = (len(L) % 2 == 0)
         if not ok:
-            print 'error', len(L)
             L.pop(-1)
 
         L2 = []
@@ -528,24 +524,18 @@ class Layer:
            x = (y -  y1) * (x2 - x1) / (y2 - y1) + x1
            return x
     
-    def isPeak(self, y, point, L):
-        if len(L) == 1:
-            return True
-
-        for it in L:
-            y1 = it.y
-            alist = filter(lambda p: p !=  it, L)
-            for ait in alist:
-                y2 = ait.y
-                val = (y1 - y) * (y2 - y)
-                if val > 0:
-                    return True
-        return False                    
-                
+    def isPeak(self, y, point, lines):
+        L = []
+        for line in lines:
+            if point == line.p1:
+                p = line.p2
+            elif point == line.p2:
+                p = line.p1
+            else:
+                assert 0
+            L.append(p)
+        
         n = len(L)
-        if n % 2 == 1:
-            return True
-
         val = (L[0].y - y) * (L[1].y - y)
         if val > 0.0:
             return True
@@ -555,16 +545,13 @@ class Layer:
     def intersect_1(self, y, point, line, loop):
         L = []
         for it in loop:
-            if point == it.p1:
-                L.append(it.p2)
-            elif point == it.p2:
-                L.append(it.p1)
+            if point in (it.p1, it.p2):
+                L.append(it)
         
-        if len(L) >= 2:
-            print point
-            print line
-            for it in L:
-                print it
+        n = len(L)
+        
+        assert line in L
+        
         peak = self.isPeak(y, point, L)
         
         if peak:
@@ -849,13 +836,16 @@ class CadModel:
 
         no = (self.maxz - self.minz) / self.height
         no = int(no)
-        while z < self.maxz:
+        while z <= self.maxz:
             layer = self.createOneLayer(z)
-            z += self.height
             if layer:
                 count += 1
                 print 'layer', count, '/', no
                 self.layers.append(layer)
+                z += self.height
+            else:
+                z = z * 0.99
+                
         print 'no of layers:', len(self.layers)                
         cpu = '%.1f' % (time.time() - start)
         print 'slice cpu', cpu,'secs'
@@ -875,8 +865,11 @@ class CadModel:
                     lines.append(line)
         
         if len(lines) != 0:
-            layer.setLines(lines)
-            return layer
+            ok = layer.setLines(lines)
+            if ok:
+                return layer
+            else:
+                return None
         else:
             return None
     
@@ -887,6 +880,10 @@ class CadModel:
             glColor(1, 0, 0)
             glBegin(GL_TRIANGLES)
             for facet in self.facets:
+                r = random.random()
+                g = random.random()
+                b = random.random()
+                #glColor(r, g, b)
                 normal = facet.normal
                 glNormal3f(normal.x, normal.y, normal.z)
                 for p in facet.points:
