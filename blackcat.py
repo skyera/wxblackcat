@@ -537,7 +537,7 @@ class Layer:
         
         # Are they adjacent lines?
         distance = abs(y2 - y1)
-        if distance > 0 and equal(distance, self.pitch):
+        if distance > 0 and distance <= self.pitch:
             for aline in scanline:
                 if aline.p1.x >= line.p2.x or aline.p2.x <= line.p1.x:
                     pass
