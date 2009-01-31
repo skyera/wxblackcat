@@ -264,17 +264,8 @@ class Layer:
     def createGLList(self):
         self.layerListId = 1001
         glNewList(self.layerListId, GL_COMPILE)
-        glColor(0, 0, 1)
-        glBegin(GL_LINES)
-        for loop in self.loops:
-            r = random.random()
-            g = random.random()
-            b = random.random()
-            glColor(r, g, b)
-            for line in loop:
-                for p in [line.p1, line.p2]:
-                    glVertex3f(p.x, p.y, p.z)
         
+        glBegin(GL_LINES)
         for chunk in self.chunks:
             r = random.random()
             g = random.random()
@@ -284,6 +275,17 @@ class Layer:
             for line in chunk:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
+        
+        glColor(1, 1, 1)
+        for loop in self.loops:
+            r = random.random()
+            g = random.random()
+            b = random.random()
+            #glColor(r, g, b)
+            for line in loop:
+                for p in [line.p1, line.p2]:
+                    glVertex3f(p.x, p.y, p.z)
+        
         
         glEnd()
         glEndList()
