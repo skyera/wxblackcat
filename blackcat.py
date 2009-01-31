@@ -76,8 +76,11 @@ class Point:
             return 1
     
     def __hash__(self):
-        t = (self.x, self.y, self.z)
-        return hash(t)
+        s = '%.6f %.6f %.6f' % (self.x, self.y, self.z)
+        return hash(s)
+        
+        #t = (self.x, self.y, self.z)
+        #return hash(t)
 
 
 class Line:
@@ -140,7 +143,7 @@ def isIntersect(p1, p2, z):
     else:
         return False
 
-def getIntersect(p1, p2, z):
+def calcIntersect(p1, p2, z):
     x1 = p1.x
     y1 = p1.y
     z1 = p1.z
@@ -206,6 +209,7 @@ class Facet:
         n = len(L1)
         if n == 0:
             line = self.intersect_0_vertex(points, z)
+            assert line
         elif n == 1:
             i1 = L2[0]
             i2 = L2[1]
@@ -219,8 +223,10 @@ class Facet:
             i1 = L1[0]
             i2 = L1[1]
             line = Line(points[i1], points[i2])
-        else:
+        elif n == 3:
             line = None
+        else:
+            assert 0
         
         if line:
             length = line.length()
@@ -234,14 +240,14 @@ class Facet:
             p1 = points[i]
             p2 = points[next]
             if isIntersect(p1, p2, z):
-                p = getIntersect(p1, p2, z)
+                p = calcIntersect(p1, p2, z)
                 L.append(p)
         
         assert len(L) == 2
         return Line(L[0], L[1])
 
     def intersect_1_vertex(self, p1, p2, p3, z):
-        p = getIntersect(p2, p3, z)
+        p = calcIntersect(p2, p3, z)
         return Line(p1, p)
 
 class Layer:
@@ -259,14 +265,14 @@ class Layer:
         glNewList(self.layerListId, GL_COMPILE)
         glColor(0, 0, 1)
         glBegin(GL_LINES)
-        #for loop in self.loops:
-        #    r = random.random()
-        #    g = random.random()
-        #    b = random.random()
-        #    glColor(r, g, b)
-        #    for line in loop:
-        #        for p in [line.p1, line.p2]:
-        #            glVertex3f(p.x, p.y, p.z)
+        for loop in self.loops:
+            r = random.random()
+            g = random.random()
+            b = random.random()
+            glColor(r, g, b)
+            for line in loop:
+                for p in [line.p1, line.p2]:
+                    glVertex3f(p.x, p.y, p.z)
         
         for chunk in self.chunks:
             r = random.random()
@@ -284,20 +290,25 @@ class Layer:
 
     def setLines(self, lines):
         self.lines = lines
-        #self.createLoops()
-        self.calcDimension2()             
+        self.createLoops()
+        self.calcDimension()             
         self.createScanlines()
         self.createChunks()
 
     def createLoops(self):
         lines = self.lines
+
+        oldlines = copy.deepcopy(lines)
         self.loops = []
         while len(lines) != 0:
             loop = []
+            
             line = lines.pop()
             loop.append(line)
+            
             start = line.p1
             p2 = line.p2
+            
             while True:
                 found = False
                 for aline in lines:
@@ -319,8 +330,15 @@ class Layer:
                         break
                 else:
                     print 'error'
+                    print len(oldlines), len(lines)
+                    for it in oldlines:
+                        print it
+                    print '--'
+                    for it in lines:
+                        print it
+                    print p2
+                    assert 0
                     break
-            #self.loops.append(loop)
             
             if found:
                 self.moveLines(loop)
@@ -406,22 +424,22 @@ class Layer:
         self.scanlines = []
         y = self.miny + self.pitch
         while y < self.maxy:
-            scanline = self.createOneScanline2(y)
+            scanline = self.createOneScanline(y)
             if len(scanline) != 0:
                 self.scanlines.append(scanline)
             y += self.pitch
     
     def createOneScanline(self, y):
-        L = set()
+        L = []
         for loop in self.loops:
-            head = loop[0]
-            tail = loop[-1]
-            #assert head.p1 == tail.p2
             for line in loop:
                 x = self.intersect(y, line, loop)
                 if x != None:
-                    L.add(x)
-        L = list(L)                    
+                    for it in L:
+                        if equal(x, it):
+                            break
+                    else:
+                        L.append(x)
         L.sort()                    
         ok = (len(L) % 2 == 0)
         assert ok
@@ -436,21 +454,27 @@ class Layer:
             line = Line(p1, p2)
             L2.append(line)
         return L2
-    
+
     def createOneScanline2(self, y):
-        L = set()
+        L = []
         lines = self.lines
         for line in lines:
             x = self.intersect(y, line, lines)
             if x != None:
-                L.add(x)
+
+                for it in L:
+                    if equal(x, it):
+                        break;
+                else:
+                    L.append(x)
         
-        L = list(L)                    
         L.sort()                    
         ok = (len(L) % 2 == 0)
         if not ok:
+            for it in L:
+                print it
             L.pop(-1)
-            #assert ok
+            assert ok
 
         L2 = []
         n = len(L)
@@ -505,8 +529,10 @@ class Layer:
         for line in lines:
             if point == line.p1:
                 p = line.p2
-            else:
+            elif point == line.p2:
                 p = line.p1
+            else:
+                assert 0
             L.append(p)
         
         n = len(L)
@@ -822,11 +848,17 @@ class CadModel:
     
     def createOneLayer(self, z):
         layer = Layer(z, self.pitch)
-        lines = set()
+        lines = []
         for facet in self.facets:
             line = facet.intersect(z) 
             if line:
-                lines.add(line)
+                p1 = line.p1
+                p2 = line.p2
+                for it in lines:
+                    if (p1 == it.p1 and p2 == it.p2) or (p1 == it.p2 and p2 == it.p1):
+                        break
+                else:
+                    lines.append(line)
         
         if len(lines) != 0:
             layer.setLines(lines)
