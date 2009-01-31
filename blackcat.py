@@ -219,10 +219,12 @@ class Facet:
             else:
                 line = None
         elif n == 2:
+            raise FormatError
             i1 = L1[0]
             i2 = L1[1]
             line = Line(points[i1], points[i2])
         elif n == 3:
+            raise FormatError
             line = None
         else:
             assert 0
@@ -330,6 +332,7 @@ class Layer:
                     if p2 == start:
                         break
                 else:
+                    print 'error: loop is not found'
                     return False
             
             if found:
@@ -337,6 +340,7 @@ class Layer:
                 nloop = self.mergeLines(loop)
                 self.loops.append(nloop)
         
+        print 'no of loops', len(self.loops)
         return True                
     
     def moveLines(self, loop):
@@ -409,15 +413,23 @@ class Layer:
         y = self.miny + self.pitch
         while y < self.maxy:
             scanline = self.createOneScanline(y)
-            if len(scanline) != 0:
+            if scanline == 'redo':
+                y = y - self.pitch * 0.01                
+            elif len(scanline) != 0:
                 self.scanlines.append(scanline)
-            y += self.pitch
+                y += self.pitch
+            else:
+                y += self.pitch
     
     def createOneScanline(self, y):
         L = []
         for loop in self.loops:
             for line in loop:
-                x = self.intersect(y, line, loop)
+                try:
+                    x = self.intersect(y, line, loop)
+                except FormatError:
+                    return 'redo'
+
                 if x != None:
                     for it in L:
                         if equal(x, it):
@@ -458,6 +470,7 @@ class Layer:
             elif count == 1:
                 x = self.intersect_1(y, p, line, loop)
             elif count == 2:
+                raise FormatError
                 x = None
 
             return x
@@ -522,14 +535,14 @@ class Layer:
         y2 = scanline[0].p1.y
         y1 = line.p1.y
         
-        if not equal(y2 - y1, self.pitch):
-            return False
-        
-        for aline in scanline:
-            if aline.p1.x >= line.p2.x or aline.p2.x <= line.p1.x:
-                pass
-            else:
-                return aline
+        # Are they adjacent lines?
+        distance = abs(y2 - y1)
+        if distance > 0 and equal(distance, self.pitch):
+            for aline in scanline:
+                if aline.p1.x >= line.p2.x or aline.p2.x <= line.p1.x:
+                    pass
+                else:
+                    return aline
         return False                
 
     def createChunks(self):
@@ -552,6 +565,7 @@ class Layer:
             
             self.chunks.append(chunk)
             scanlines = filter(lambda x: len(x) > 0, scanlines)
+        print 'no of chunks', len(self.chunks)
 
 class CadModel:
     def __init__(self):
@@ -791,13 +805,15 @@ class CadModel:
         no = int(no)
         while z <= self.maxz:
             layer = self.createOneLayer(z)
-            if layer:
+            if layer and layer != "redo":
                 count += 1
                 print 'layer', count, '/', no
                 self.layers.append(layer)
                 z += self.height
-            elif layer == "redo":
-                z = z * 0.99
+            elif layer and layer == "redo":
+                z = z - self.height * 0.01
+            else:
+                z += self.height
 
                 
         print 'no of layers:', len(self.layers)                
@@ -808,7 +824,10 @@ class CadModel:
         layer = Layer(z, self.pitch)
         lines = []
         for facet in self.facets:
-            line = facet.intersect(z) 
+            try:
+                line = facet.intersect(z) 
+            except FormatError:
+                return 'redo'
             if line:
                 p1 = line.p1
                 p2 = line.p2
@@ -817,7 +836,6 @@ class CadModel:
                         break
                 else:
                     lines.append(line)
-        
         if len(lines) != 0:
             ok = layer.setLines(lines)
             if ok:
@@ -1180,7 +1198,7 @@ class ControlPanel(wx.Panel):
     def setCurrLayer(self, curr):
         self.txtFields["currlayer"].SetValue(str(curr))
 
-sliceParameter = {"height":"0.4", "pitch":"0.38", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
+sliceParameter = {"height":"1.0", "pitch":"1.0", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
 
 
 class BlackCatFrame(wx.Frame):
@@ -1219,7 +1237,7 @@ class BlackCatFrame(wx.Frame):
         if not self.cadmodel.sliced:
             return
         self.cadmodel.nextLayer()
-        self.leftPanel.setCurrLayer(self.cadmodel.currLayer)
+        self.leftPanel.setCurrLayer(self.cadmodel.currLayer + 1)
         self.Refresh()
 
     def OnPrevLayer(self, event):
@@ -1227,7 +1245,7 @@ class BlackCatFrame(wx.Frame):
             return
 
         self.cadmodel.prevLayer()
-        self.leftPanel.setCurrLayer(self.cadmodel.currLayer)
+        self.leftPanel.setCurrLayer(self.cadmodel.currLayer + 1)
         self.Refresh()
 
     def createPanel(self):
@@ -1415,7 +1433,7 @@ class SlicePanel(wx.Panel):
         self.createControls()
 
     def createControls(self):
-        labels = [("Layer height", "0.43", "height"), ("Pitch", "0.38", "pitch"), \
+        labels = [("Layer height", "1.0", "height"), ("Pitch", "1.0", "pitch"), \
                   ("Scanning speed", "20", "speed"), ("Fast speed", "20", "fast")]
         
         outsizer = wx.BoxSizer(wx.VERTICAL)
