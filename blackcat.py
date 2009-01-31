@@ -129,8 +129,10 @@ class Line:
     def __hash__(self):
         L = [self.p1, self.p2]
         L.sort()
-        t = tuple(L)
-        return hash(t)
+        s = ''
+        for it in L: 
+            s += str(it)
+        return hash(s)
 
 def intersect(x1, y1, x2, y2, x):
     ''' compute y'''
@@ -298,7 +300,7 @@ class Layer:
     def createLoops(self):
         lines = self.lines
 
-        oldlines = copy.deepcopy(lines)
+        self.savedlines = copy.deepcopy(lines)
         self.loops = []
         while len(lines) != 0:
             loop = []
@@ -330,12 +332,12 @@ class Layer:
                         break
                 else:
                     print 'error'
-                    print len(oldlines), len(lines)
-                    for it in oldlines:
-                        print it
-                    print '--'
-                    for it in lines:
-                        print it
+                    print len(self.savedlines), len(lines)
+                    #for it in oldlines:
+                    #    print it
+                    #print '--'
+                    #for it in lines:
+                    #    print it
                     print p2
                     #assert 0
                     break
@@ -442,7 +444,8 @@ class Layer:
                         L.append(x)
         L.sort()                    
         ok = (len(L) % 2 == 0)
-        assert ok
+        if not ok:
+            L.pop(-1)
 
         L2 = []
         n = len(L)
@@ -523,7 +526,7 @@ class Layer:
         else:
            x = (y -  y1) * (x2 - x1) / (y2 - y1) + x1
            return x
-
+    
     def isPeak(self, y, point, lines):
         L = []
         for line in lines:
@@ -536,6 +539,9 @@ class Layer:
             L.append(p)
         
         n = len(L)
+        if n == 1:
+            return True
+
         val = (L[0].y - y) * (L[1].y - y)
         if val > 0.0:
             return True
@@ -547,8 +553,8 @@ class Layer:
         for it in loop:
             if point in (it.p1, it.p2):
                 L.append(it)
-        assert len(L) == 2
-        assert line in L
+        
+        n = len(L)
         
         peak = self.isPeak(y, point, L)
         
@@ -831,11 +837,15 @@ class CadModel:
         self.layers = []
         z = self.minz + self.height
         count = 0
+
+        no = (self.maxz - self.minz) / self.height
+        no = int(no)
         while z < self.maxz:
             layer = self.createOneLayer(z)
             z += self.height
             if layer:
                 count += 1
+                print 'layer', count, '/', no
                 self.layers.append(layer)
         print 'no of layers:', len(self.layers)                
         cpu = '%.1f' % (time.time() - start)
