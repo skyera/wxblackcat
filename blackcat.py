@@ -48,8 +48,11 @@ class EndFileException(Exception):
         self.args = args
 
 class FormatError(Exception):
-    def __init__(self, args=None):
-        self.args = args
+    def __init__(self, value=None):
+        self.value = value
+    
+    def __str__(self):
+        return 'FormatError:' + self.value
 
 class Point:
     def __init__(self, x=0.0, y=0.0, z=0.0):
@@ -209,7 +212,7 @@ class Facet:
             p1 = points[i1]
             p2 = points[i2]
             if isIntersect(p1, p2, z):
-                line = self.intersect_1_vertex(points[L1[0]], points[L2[0]], points[L2[1]], z)
+                line = self.intersect_1_vertex(points[L1[0]], p1, p2, z)
             else:
                 line = None
         elif n == 2:
@@ -218,14 +221,10 @@ class Facet:
             line = Line(points[i1], points[i2])
         else:
             line = None
+        
         if line:
             length = line.length()
-            if not length > 0:
-                print '*' * 40
-                print 'n', n
-                print 'warning', line, length
-                print 'facet', self
-                print 'z', z
+            assert length > 0.0
         return line
 
     def intersect_0_vertex(self, points, z):
@@ -239,17 +238,11 @@ class Facet:
                 L.append(p)
         
         assert len(L) == 2
-        line = Line()
-        line.p1 = L[0]
-        line.p2 = L[1]
-        return line
+        return Line(L[0], L[1])
 
     def intersect_1_vertex(self, p1, p2, p3, z):
         p = getIntersect(p2, p3, z)
-        line = Line()
-        line.p1 = p1
-        line.p2 = p
-        return line
+        return Line(p1, p)
 
 class Layer:
 
@@ -318,18 +311,23 @@ class Layer:
                         p2 = aline.p1
                         found = True
                         break
+
                 if found:        
                     lines.remove(aline)
                     loop.append(Line(p1, p2))
                     if p2 == start:
                         break
                 else:
-                    print 'error', 'lines', len(lines)
+                    print 'error'
                     break
+            #self.loops.append(loop)
+            
             if found:
                 self.moveLines(loop)
                 nloop = self.mergeLines(loop)
                 self.loops.append(nloop)
+            else:
+                self.loops.append(loop)
     
     def moveLines(self, loop):
         tail = loop[-1]
@@ -381,10 +379,10 @@ class Layer:
         tail = nloop[-1]
         assert head.p1 == tail.p2
         
-        for i in range(0, len(nloop) - 1):
-            k1 = nloop[i]
-            k2 = nloop[i + 1]
-            assert k1 != k2
+        #for i in range(0, len(nloop) - 1):
+        #    k1 = nloop[i]
+        #    k2 = nloop[i + 1]
+        #    #assert k1 != k2
         return nloop
 
     def calcDimension(self):
@@ -410,7 +408,7 @@ class Layer:
         for loop in self.loops:
             head = loop[0]
             tail = loop[-1]
-            assert head.p1 == tail.p2
+            #assert head.p1 == tail.p2
             for line in loop:
                 x = self.intersect(y, line, loop)
                 if x != None:
@@ -501,7 +499,7 @@ class Layer:
             return point.x     
 
     def isIntersect(self, y1, y2, y):
-        if (y1 - y) * (y2 - y) <= 0:
+        if (y1 - y) * (y2 - y) <= 0.0:
             return True
         else:
             return False
@@ -587,9 +585,11 @@ class CadModel:
                 self.loaded = True
                 raise EndFileException, 'endfile'
             else:
+                self.logger.error(line)
                 raise FormatError, line
         
         if items[0] != 'facet' and items[1] != 'normal':
+            self.logger.error(line)
             raise FormatError, line
         
         L = map(lambda x: float(x), items[2:])
@@ -599,6 +599,7 @@ class CadModel:
     def getOuterloop(self, f):
         line = self.getLine(f)
         if line != "outer loop":
+            self.logger.error(line)
             raise FormatError, line
 
     def getVertex(self, f):
@@ -608,8 +609,10 @@ class CadModel:
             items = line.split()
             no = len(items)
             if no != 4:
+                self.logger.error(line)
                 raise FormatError, line
             if items[0] != 'vertex':
+                self.logger.error(line)
                 raise FormatError, line
 
             L = map(lambda x: float(x), items[1:])
@@ -620,11 +623,13 @@ class CadModel:
     def getEndloop(self, f):
         line = self.getLine(f) 
         if line != 'endloop':
+            self.logger.error(line)
             raise FormatError, line
     
     def getEndFacet(self, f):
         line = self.getLine(f)
         if line != 'endfacet':
+            self.logger.error(line)
             raise FormatError, line
 
     def getFacet(self, f):
@@ -646,6 +651,7 @@ class CadModel:
         if no >= 2 and items[0] == 'solid':
             self.modelName = items[1]
         else:
+            self.logger.error(line)
             raise FormatError, line
     
     def calcDimension(self):
@@ -693,7 +699,7 @@ class CadModel:
         except EndFileException, e:
             pass
         except FormatError, e:
-            print e.args
+            print e
             return False
         
         if self.loaded:
