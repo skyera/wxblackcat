@@ -536,10 +536,6 @@ class Layer:
             L.append(p)
         
         n = len(L)
-        if n != 2:
-            print n
-            assert 0
-        assert L[0] != L[1]
         val = (L[0].y - y) * (L[1].y - y)
         if val > 0.0:
             return True
@@ -557,7 +553,6 @@ class Layer:
         peak = self.isPeak(y, point, L)
         
         if peak:
-            print 'peak'
             return None
         else:
             return point.x     
