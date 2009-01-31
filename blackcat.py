@@ -259,14 +259,14 @@ class Layer:
         glNewList(self.layerListId, GL_COMPILE)
         glColor(0, 0, 1)
         glBegin(GL_LINES)
-        for loop in self.loops:
-            r = random.random()
-            g = random.random()
-            b = random.random()
-            glColor(r, g, b)
-            for line in loop:
-                for p in [line.p1, line.p2]:
-                    glVertex3f(p.x, p.y, p.z)
+        #for loop in self.loops:
+        #    r = random.random()
+        #    g = random.random()
+        #    b = random.random()
+        #    glColor(r, g, b)
+        #    for line in loop:
+        #        for p in [line.p1, line.p2]:
+        #            glVertex3f(p.x, p.y, p.z)
         
         for chunk in self.chunks:
             r = random.random()
@@ -284,8 +284,8 @@ class Layer:
 
     def setLines(self, lines):
         self.lines = lines
-        self.createLoops()
-        self.calcDimension()             
+        #self.createLoops()
+        self.calcDimension2()             
         self.createScanlines()
         self.createChunks()
 
@@ -394,11 +394,19 @@ class Layer:
         self.miny = min(ylist)                
         self.maxy = max(ylist)
     
+    def calcDimension2(self):
+        ylist = []
+        for line in self.lines:
+            ylist.append(line.p1.y)
+            ylist.append(line.p2.y)
+        self.miny = min(ylist)
+        self.maxy = max(ylist)
+    
     def createScanlines(self):
         self.scanlines = []
         y = self.miny + self.pitch
         while y < self.maxy:
-            scanline = self.createOneScanline(y)
+            scanline = self.createOneScanline2(y)
             if len(scanline) != 0:
                 self.scanlines.append(scanline)
             y += self.pitch
@@ -429,6 +437,32 @@ class Layer:
             L2.append(line)
         return L2
     
+    def createOneScanline2(self, y):
+        L = set()
+        lines = self.lines
+        for line in lines:
+            x = self.intersect(y, line, lines)
+            if x != None:
+                L.add(x)
+        
+        L = list(L)                    
+        L.sort()                    
+        ok = (len(L) % 2 == 0)
+        if not ok:
+            L.pop(-1)
+            #assert ok
+
+        L2 = []
+        n = len(L)
+        for i in range(0, n, 2):
+            x1 = L[i]
+            x2 = L[i + 1]
+            p1 = Point(x1, y, self.z)
+            p2 = Point(x2, y, self.z)
+            line = Line(p1, p2)
+            L2.append(line)
+        return L2
+
     def intersect(self, y, line, loop):
         y1 = line.p1.y
         y2 = line.p2.y
@@ -475,6 +509,10 @@ class Layer:
                 p = line.p1
             L.append(p)
         
+        n = len(L)
+        if n != 2:
+            print n
+            assert 0
         assert L[0] != L[1]
         val = (L[0].y - y) * (L[1].y - y)
         if val > 0.0:
