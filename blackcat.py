@@ -447,7 +447,6 @@ class Layer:
         if not ok:
             print 'error'
             assert 0
-            L.pop(-1)
 
         L2 = []
         n = len(L)
