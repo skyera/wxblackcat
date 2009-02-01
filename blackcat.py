@@ -425,6 +425,7 @@ class Layer:
     
     def createOneScanline(self, y):
         L = []
+        s = set()
         for loop in self.loops:
             for line in loop:
                 try:
@@ -433,14 +434,19 @@ class Layer:
                     return 'redo'
 
                 if x != None:
-                    for it in L:
-                        if equal(x, it):
-                            break
-                    else:
-                        L.append(x)
+                    s.add('%.6f' % x)
+                    #for it in L:
+                    #    if equal(x, it):
+                    #        break
+                    #else:
+                    #    L.append(x)
+        for it in s:
+            L.append(float(it))
         L.sort()                    
         ok = (len(L) % 2 == 0)
         if not ok:
+            print 'error'
+            assert 0
             L.pop(-1)
 
         L2 = []
@@ -759,7 +765,6 @@ class CadModel:
         self.calcDimension()
         self.createLayers()
         if len(self.layers) > 0:
-            self.currLayer = 0
             self.sliced = True
             self.currLayer = 0
             self.setNewDimension()
@@ -807,6 +812,7 @@ class CadModel:
         no = (self.maxz - self.minz) / self.height
         no = int(no)
         while z <= self.maxz:
+            print '-' * 40
             layer = self.createOneLayer(z)
             if layer and layer != "redo":
                 count += 1
@@ -832,13 +838,16 @@ class CadModel:
             except FormatError:
                 return 'redo'
             if line:
-                p1 = line.p1
-                p2 = line.p2
-                for it in lines:
-                    if (p1 == it.p1 and p2 == it.p2) or (p1 == it.p2 and p2 == it.p1):
-                        break
-                else:
-                    lines.append(line)
+                lines.append(line)
+                #p1 = line.p1
+                #p2 = line.p2
+                #for it in lines:
+                #    if (p1 == it.p1 and p2 == it.p2) or (p1 == it.p2 and p2 == it.p1):
+                #        print 'duplicate line'
+                #        break
+                #else:
+                #    lines.append(line)
+        
         if len(lines) != 0:
             ok = layer.setLines(lines)
             if ok:
@@ -1352,7 +1361,7 @@ class BlackCatFrame(wx.Frame):
                 self.leftPanel.setDimension(self.cadmodel.dimension)
                 self.leftPanel.setSliceInfo(sliceParameter)
                 self.leftPanel.setNoLayer(len(self.cadmodel.layers))
-                self.leftPanel.setCurrLayer(self.cadmodel.currLayer)
+                self.leftPanel.setCurrLayer(self.cadmodel.currLayer + 1)
                 self.pathCanvas.setModel(self.cadmodel)
                 
             else:
