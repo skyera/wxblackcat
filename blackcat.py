@@ -1302,14 +1302,18 @@ class BlackCatFrame(wx.Frame):
 
     def menuData(self):
         return (("&File", ("&Open", "Open CAD file", self.OnOpen),
-                         ("&Slice", "Slice CAD model", self.OnSlice),
-                         ("", "", ""),
+                          ("&Slice", "Slice CAD model", self.OnSlice),
+                          ("Save", "Save slice result as xml file", self.OnSave),  
+                          ("", "", ""),
                          ("&Quit", "Quit", self.OnQuit)),
                 ("Edit", ("Next Layer\tpgdn", "next layer", self.OnNextLayer),
                          ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer)),
                 ("&Help", ("&About", "About this program", self.OnAbout))
                  )
     
+    def OnSave(self, event):
+        wx.MessageBox("save")
+
     def OnAbout(self, event):
         info = wx.AboutDialogInfo()
         info.Name = "Black Cat"
