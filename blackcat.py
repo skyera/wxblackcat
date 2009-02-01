@@ -1305,6 +1305,8 @@ class BlackCatFrame(wx.Frame):
                          ("&Slice", "Slice CAD model", self.OnSlice),
                          ("", "", ""),
                          ("&Quit", "Quit", self.OnQuit)),
+                ("Edit", ("Next Layer\tpgdn", "next layer", self.OnNextLayer),
+                         ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer)),
                 ("&Help", ("&About", "About this program", self.OnAbout))
                  )
     
