@@ -1312,7 +1312,11 @@ class BlackCatFrame(wx.Frame):
                  )
     
     def OnSave(self, event):
-        wx.MessageBox("save")
+        wildcard = "xml file (*.xml)|*.xml|All files (*.*)|*.*"
+        dlg = wx.FileDialog(None, "Save slice data as xml file", os.getcwd(), "", wildcard, wx.SAVE)
+        if dlg.ShowModal() == wx.ID_OK:
+            filename = dlg.GetPath()
+            print filename
 
     def OnAbout(self, event):
         info = wx.AboutDialogInfo()
