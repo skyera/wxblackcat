@@ -364,17 +364,17 @@ class Layer:
                     rmList.append(aline)
                 else:
                     break
+            
             for it in rmList:
                 loop.remove(it)
-            for it in rmList:
-                loop.append(it)
+            
+            loop.extend(rmList)
         
         k1 = loop[0].slope()
         k2 = loop[-1].slope()
-        assert k1 != k2
+        assert not equal(k1, k2)
 
     def mergeLines(self, loop):
-        n1 = len(loop)
         nloop = []
         
         while len(loop) != 0:
@@ -387,16 +387,17 @@ class Layer:
             rmList = []            
             for aline in loop:
                 k2 = aline.slope()
-                if k1 != k2:
-                    p2 = aline.p1
-                    break
-                else:
+                if equal(k1, k2):
                     p2 = aline.p2
                     rmList.append(aline)
+                else:
+                    p2 = aline.p1
+                    break
             
             for it in rmList:
                 loop.remove(it)
             nloop.append(Line(p1, p2))
+        
         head = nloop[0]
         tail = nloop[-1]
         assert head.p1 == tail.p2
