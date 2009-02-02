@@ -302,6 +302,7 @@ class Layer:
         ok = self.createLoops()
         if not ok:
             return False
+        
         self.calcDimension()             
         self.createScanlines()
         self.createChunks()
@@ -343,10 +344,9 @@ class Layer:
                     print 'error: loop is not found'
                     return False
             
-            if found:
-                self.moveLines(loop)
-                nloop = self.mergeLines(loop)
-                self.loops.append(nloop)
+            self.moveLines(loop)
+            nloop = self.mergeLines(loop)
+            self.loops.append(nloop)
         
         print 'no of loops', len(self.loops)
         return True                
@@ -419,9 +419,10 @@ class Layer:
     def createScanlines(self):
         self.scanlines = []
         y = self.miny + self.pitch
-        while y < self.maxy:
+        while y > self.miny and y < self.maxy:
             scanline = self.createOneScanline(y)
             if scanline == 'redo':
+                print 'recreate scan line'
                 y = y - self.pitch * 0.01                
             elif len(scanline) != 0:
                 self.scanlines.append(scanline)
@@ -430,7 +431,6 @@ class Layer:
                 y += self.pitch
     
     def createOneScanline(self, y):
-        L = []
         s = set()
         for loop in self.loops:
             for line in loop:
@@ -441,29 +441,26 @@ class Layer:
 
                 if x != None:
                     s.add('%.6f' % x)
-                    #for it in L:
-                    #    if equal(x, it):
-                    #        break
-                    #else:
-                    #    L.append(x)
-        for it in s:
-            L.append(float(it))
-        L.sort()                    
-        ok = (len(L) % 2 == 0)
-        if not ok:
-            print 'error'
-            assert 0
+        
+        xlist = map(lambda x: float(x), s)
+        xlist.sort()                    
 
-        L2 = []
-        n = len(L)
+        n = len(xlist)
+        ok = (n % 2 == 0)
+        if not ok:
+            print 'error: no of points in a scanline is not even', n
+            assert 0
+        
+        # Create lines
+        lines = []
         for i in range(0, n, 2):
-            x1 = L[i]
-            x2 = L[i + 1]
+            x1 = xlist[i]
+            x2 = xlist[i + 1]
             p1 = Point(x1, y, self.z)
             p2 = Point(x2, y, self.z)
             line = Line(p1, p2)
-            L2.append(line)
-        return L2
+            lines.append(line)
+        return lines
 
     def intersect(self, y, line, loop):
         y1 = line.p1.y
@@ -871,10 +868,18 @@ class CadModel:
         no = (self.maxz - self.minz) / self.height
         no = int(no)
         self.queue.put(no)
-        while z <= self.maxz:
+        while z > self.minz and z <= self.maxz:
             print '-' * 40
             layer = self.createOneLayer(z)
-            if layer and layer != "redo":
+            
+            if layer == False:
+                break
+            elif layer == 'redo':
+                z = z - self.height * 0.01
+                print 'recreate layer'
+            elif layer == None:
+                z += self.height
+            else:
                 count += 1
                 print 'layer', count, '/', no
                 layer.id = count
@@ -882,10 +887,6 @@ class CadModel:
                 
                 z += self.height
                 self.queue.put(count)
-            elif layer and layer == "redo":
-                z = z - self.height * 0.01
-            else:
-                z += self.height
 
         self.queue.put("done")                
         print 'no of layers:', len(self.layers)                
@@ -902,21 +903,13 @@ class CadModel:
                 return 'redo'
             if line:
                 lines.append(line)
-                #p1 = line.p1
-                #p2 = line.p2
-                #for it in lines:
-                #    if (p1 == it.p1 and p2 == it.p2) or (p1 == it.p2 and p2 == it.p1):
-                #        print 'duplicate line'
-                #        break
-                #else:
-                #    lines.append(line)
         
         if len(lines) != 0:
             ok = layer.setLines(lines)
             if ok:
                 return layer
             else:
-                return "redo"
+                return False
         else:
             return None
     
