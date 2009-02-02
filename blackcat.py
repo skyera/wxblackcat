@@ -12,8 +12,9 @@ import time
 import logging
 import pprint
 import math
-import cProfile
 import random
+import thread
+import Queue
 
 try:
     import psyco
@@ -574,6 +575,45 @@ class Layer:
             self.chunks.append(chunk)
             scanlines = filter(lambda x: len(x) > 0, scanlines)
         print 'no of chunks', len(self.chunks)
+    
+    def write(self, f):
+        print >> f, '\t<layer id="', self.id, '">'
+        self.writeloop(f)
+        self.writechunks(f)
+        print >> f, '\t</layer>'
+    
+    def writeloop(self, f):
+        print >> f, '\t\t<loops num="', len(self.loops), '">'
+        count = 1
+        for loop in self.loops:
+            print >> f, '\t\t\t<loop id="', count, '">'
+            for line in loop:
+                writeline(line, f)
+            print >> f, '\t\t\t</loop>'                
+            count += 1
+        print >> f, '\t\t</loops>'
+
+    def writechunks(self, f):
+        print >> f, '\t\t<chunks num="', len(self.chunks), '">'
+        count = 1
+        for chunk in self.chunks:
+            print >> f, '\t\t\t<chunk id="', count, '">'
+            for line in chunk:
+                writeline(line, f)
+            print >> f, '\t\t\t</chunk>'
+            count += 1
+        print >> f, '\t\t</chunks>'
+
+def writeline(line, f):
+    print >> f, '\t\t\t\t<line>'
+    for p in (line.p1, line.p2):
+        print >> f, '\t\t\t\t\t<point>'
+        print >> f, '\t' * 6, '<x>', p.x, '</x>'
+        print >> f, '\t' * 6, '<y>', p.y, '</y>'
+        print >> f, '\t' * 6, '<z>', p.z, '</z>'
+        print >> f, '\t\t\t\t\t</point>'
+    print >> f, '\t\t\t\t</line>'        
+
 
 class CadModel:
     def __init__(self):
@@ -750,6 +790,21 @@ class CadModel:
             return True
         else:
             return False
+    
+    def save(self, filename):
+        f = open(filename, 'w')
+        print >> f, '<slice>'
+        print >> f, '    <para>'
+        print >> f, '         <layerheight>', self.height, '</layerheight>'
+        print >> f, '         <layerpitch>', self.pitch, '</layerpitch>'
+        print >> f, '         <speed>', self.speed, '</speed>'
+        print >> f, '    </para>'
+        print >> f, '<layers num="', len(self.layers), '">'
+
+        for layer in self.layers:
+            layer.write(f)
+        print >> f, '</layers>'
+        print >> f, '</slice>'
 
     def slice(self, para):
         self.height = float(para["height"])
@@ -810,20 +865,24 @@ class CadModel:
 
         no = (self.maxz - self.minz) / self.height
         no = int(no)
+        self.queue.put(no)
         while z <= self.maxz:
             print '-' * 40
             layer = self.createOneLayer(z)
             if layer and layer != "redo":
                 count += 1
                 print 'layer', count, '/', no
+                layer.id = count
                 self.layers.append(layer)
+                
                 z += self.height
+                self.queue.put(count)
             elif layer and layer == "redo":
                 z = z - self.height * 0.01
             else:
                 z += self.height
 
-                
+        self.queue.put("done")                
         print 'no of layers:', len(self.layers)                
         cpu = '%.1f' % (time.time() - start)
         print 'slice cpu', cpu,'secs'
@@ -1228,18 +1287,22 @@ class BlackCatFrame(wx.Frame):
         self.ID_SLICE = 1001
         self.ID_NEXT = 2000
         self.ID_PREV = 2001
+        self.ID_SAVE = 2002
         toolbar = self.CreateToolBar()
         img_open = wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN)
+        img_save = wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE)
         img_slice = wx.ArtProvider.GetBitmap(wx.ART_CDROM)
         img_next = wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN)
         img_prev = wx.ArtProvider.GetBitmap(wx.ART_GO_UP)
         toolbar.AddLabelTool(self.ID_OPEN, 'open', img_open, shortHelp='open file', longHelp='open CAD model')
+        toolbar.AddLabelTool(self.ID_SAVE, 'save', img_save, shortHelp='save slice info', longHelp='save slice result')
         toolbar.AddLabelTool(self.ID_SLICE, 'slice', img_slice, shortHelp='slice modal')
         toolbar.AddLabelTool(self.ID_NEXT, 'next', img_next, shortHelp='next layer')
         toolbar.AddLabelTool(self.ID_PREV, 'prev', img_prev, shortHelp='previous layer')
         toolbar.Realize()
 
         self.Bind(wx.EVT_TOOL, self.OnOpen, id=self.ID_OPEN)
+        self.Bind(wx.EVT_TOOL, self.OnSave, id=self.ID_SAVE)
         self.Bind(wx.EVT_TOOL, self.OnSlice, id=self.ID_SLICE)
         self.Bind(wx.EVT_TOOL, self.OnNextLayer, id=self.ID_NEXT)
         self.Bind(wx.EVT_TOOL, self.OnPrevLayer, id=self.ID_PREV)
@@ -1312,11 +1375,18 @@ class BlackCatFrame(wx.Frame):
                  )
     
     def OnSave(self, event):
+        if not self.cadmodel.sliced:
+            return
+
         wildcard = "xml file (*.xml)|*.xml|All files (*.*)|*.*"
-        dlg = wx.FileDialog(None, "Save slice data as xml file", os.getcwd(), "", wildcard, wx.SAVE)
+        dlg = wx.FileDialog(None, "Save slice data as xml file", os.getcwd(), self.cadname, wildcard, wx.SAVE)
         if dlg.ShowModal() == wx.ID_OK:
             filename = dlg.GetPath()
-            print filename
+            root, ext = os.path.splitext(filename)
+            if ext.lower() != '.xml':
+                filename = filename + '.xml'
+            self.cadmodel.save(filename)
+            print 'slicing info is saved in', filename
 
     def OnAbout(self, event):
         info = wx.AboutDialogInfo()
@@ -1350,6 +1420,9 @@ class BlackCatFrame(wx.Frame):
                 self.modelCanvas.setModel(self.cadmodel)
                 self.pathCanvas.setModel(None)
                 self.leftPanel.setDimension(self.cadmodel.dimension)
+                basename = os.path.basename(path)
+                root, ext = os.path.splitext(basename)
+                self.cadname = root
             else:
                 wx.MessageBox("Cannot open " + path, 'Error')
         dlg.Destroy()
@@ -1364,8 +1437,23 @@ class BlackCatFrame(wx.Frame):
         if result == wx.ID_OK:
             sliceParameter =  dlg.getValues()
             print 'slicing...'
-            ok = self.cadmodel.slice(sliceParameter)
-            if ok:
+            self.cadmodel.queue = Queue.Queue()
+            thread.start_new_thread(self.cadmodel.slice, (sliceParameter,))
+            noLayers = self.cadmodel.queue.get()
+            dlg = wx.ProgressDialog("Slicing in progress", "Time remainnning", noLayers, 
+                                    style=wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME|wx.PD_AUTO_HIDE|wx.PD_APP_MODAL)
+            
+            while True:
+                count = self.cadmodel.queue.get()
+                if count == 'done':
+                    count = noLayers
+                    dlg.Update(count)
+                    break
+                else:
+                    dlg.Update(count)
+            dlg.Destroy()
+            
+            if self.cadmodel.sliced:
                 self.modelCanvas.setModel(self.cadmodel)
                 self.leftPanel.setDimension(self.cadmodel.dimension)
                 self.leftPanel.setSliceInfo(sliceParameter)
