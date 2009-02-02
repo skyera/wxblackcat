@@ -1297,7 +1297,7 @@ class BlackCatFrame(wx.Frame):
         img_slice = wx.ArtProvider.GetBitmap(wx.ART_CDROM)
         img_next = wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN)
         img_prev = wx.ArtProvider.GetBitmap(wx.ART_GO_UP)
-        img_help = wx.ArtProvider.GetBitmap(wx.ART_HELP)
+        img_help = wx.ArtProvider.GetBitmap(wx.ART_HELP, client=wx.ART_TOOLBAR)
         img_quit = wx.ArtProvider.GetBitmap(wx.ART_QUIT)
 
         toolbar.AddLabelTool(self.ID_OPEN, 'open', img_open, shortHelp='open file', longHelp='open CAD model')
