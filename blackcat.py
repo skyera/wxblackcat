@@ -1,7 +1,10 @@
+#!/usr/bin/env python 
+#-----------------------------------------------------------------------------
 # Author     : Zhigang Liu
 # Date       : Jan 2009
 # License    : General Public License 2 (GPL2) 
 # Description: Slice STL CAD file layer by layer
+#-----------------------------------------------------------------------------
 
 import wx
 import os
