@@ -1288,17 +1288,25 @@ class BlackCatFrame(wx.Frame):
         self.ID_NEXT = 2000
         self.ID_PREV = 2001
         self.ID_SAVE = 2002
+        self.ID_ABOUT = 2003
+        self.ID_QUIT = 2004
+
         toolbar = self.CreateToolBar()
         img_open = wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN)
         img_save = wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE)
         img_slice = wx.ArtProvider.GetBitmap(wx.ART_CDROM)
         img_next = wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN)
         img_prev = wx.ArtProvider.GetBitmap(wx.ART_GO_UP)
+        img_help = wx.ArtProvider.GetBitmap(wx.ART_HELP)
+        img_quit = wx.ArtProvider.GetBitmap(wx.ART_QUIT)
+
         toolbar.AddLabelTool(self.ID_OPEN, 'open', img_open, shortHelp='open file', longHelp='open CAD model')
-        toolbar.AddLabelTool(self.ID_SAVE, 'save', img_save, shortHelp='save slice info', longHelp='save slice result')
         toolbar.AddLabelTool(self.ID_SLICE, 'slice', img_slice, shortHelp='slice modal')
+        toolbar.AddLabelTool(self.ID_SAVE, 'save', img_save, shortHelp='save slice info', longHelp='save slice result')
         toolbar.AddLabelTool(self.ID_NEXT, 'next', img_next, shortHelp='next layer')
         toolbar.AddLabelTool(self.ID_PREV, 'prev', img_prev, shortHelp='previous layer')
+        toolbar.AddLabelTool(self.ID_ABOUT, 'about', img_help, shortHelp='about')
+        toolbar.AddLabelTool(self.ID_QUIT, 'quit', img_quit, shortHelp='quit')
         toolbar.Realize()
 
         self.Bind(wx.EVT_TOOL, self.OnOpen, id=self.ID_OPEN)
@@ -1306,6 +1314,8 @@ class BlackCatFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.OnSlice, id=self.ID_SLICE)
         self.Bind(wx.EVT_TOOL, self.OnNextLayer, id=self.ID_NEXT)
         self.Bind(wx.EVT_TOOL, self.OnPrevLayer, id=self.ID_PREV)
+        self.Bind(wx.EVT_TOOL, self.OnAbout, id=self.ID_ABOUT)
+        self.Bind(wx.EVT_TOOL, self.OnQuit, id=self.ID_QUIT)
         
     def OnNextLayer(self, event):
         if not self.cadmodel.sliced:
