@@ -1440,7 +1440,7 @@ class BlackCatFrame(wx.Frame):
             self.cadmodel.queue = Queue.Queue()
             thread.start_new_thread(self.cadmodel.slice, (sliceParameter,))
             noLayers = self.cadmodel.queue.get()
-            dlg = wx.ProgressDialog("Slicing in progress", "Time remainnning", noLayers, 
+            dlg = wx.ProgressDialog("Slicing in progress", "Time remaining", noLayers, 
                                     style=wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME|wx.PD_AUTO_HIDE|wx.PD_APP_MODAL)
             
             while True:
