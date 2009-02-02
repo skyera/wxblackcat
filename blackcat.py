@@ -253,6 +253,7 @@ class Facet:
         return Line(p1, p)
 
 class Layer:
+    colors = ([1, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 1, 1])
 
     def __init__(self, z, pitch):
         self.lines = []
@@ -271,6 +272,7 @@ class Layer:
             r = random.random()
             g = random.random()
             b = random.random()
+            
             glColor(r, g, b)
  
             for line in chunk:
@@ -1400,12 +1402,12 @@ class BlackCatFrame(wx.Frame):
 
     def OnAbout(self, event):
         info = wx.AboutDialogInfo()
-        info.Name = "Black Cat"
+        info.Name = "BlackCat"
         info.Version = "0.1"
         info.Copyright = "(C) 2009"
-        info.Description = "Slice CAD model"
+        info.Description = "Slice stl CAD model"
         info.Developers = ["Zhigang Liu"]
-        info.License = "GPL v2"
+        info.License = "GPL2"
         wx.AboutBox(info)
 
     def createMenu(self, menuData):
@@ -1573,7 +1575,7 @@ class SlicePanel(wx.Panel):
 
         self.dirList = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
         self.dirChoice = dirChoice = wx.Choice(self, -1, (160, -1), choices=self.dirList)
-        dirChoice.SetSelection(4)
+        dirChoice.SetStringSelection(self.data['direction'])
         box.Add(dirChoice, 0, wx.EXPAND)
         self.txtList.append(dirChoice)
         
@@ -1589,10 +1591,6 @@ class SlicePanel(wx.Panel):
         self.data["direction"] = self.dirList[self.dirChoice.GetCurrentSelection()]
         self.Validate()
 
-    def disableTxt(self):
-        for txt in self.txtList:
-            txt.SetBackgroundColour('white')
-            txt.Disable()
 
 class ParaDialog(wx.Dialog):
 
