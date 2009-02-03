@@ -420,15 +420,21 @@ class Layer:
     def createScanlines(self):
         self.scanlines = []
         y = self.miny + self.pitch
-        while y > self.miny and y < self.maxy:
+        lasty = self.miny
+        while y < self.maxy:
             scanline = self.createOneScanline(y)
             if scanline == 'redo':
-                print 'recreate scan line'
                 y = y - self.pitch * 0.01                
+                if y < lasty:
+                    break
+                
+                print 'recreate scan line'
             elif len(scanline) != 0:
                 self.scanlines.append(scanline)
+                lasty = y
                 y += self.pitch
             else:
+                lasty = y
                 y += self.pitch
     
     def createOneScanline(self, y):
@@ -864,6 +870,7 @@ class CadModel:
         start = time.time()
         self.layers = []
         z = self.minz + self.height
+        lastz = self.minz
         count = 0
 
         no = (self.maxz - self.minz) / self.height
@@ -877,8 +884,11 @@ class CadModel:
                 break
             elif layer == 'redo':
                 z = z - self.height * 0.01
+                if z < lastz:
+                    break
                 print 'recreate layer'
             elif layer == None:
+                lastz = z
                 z += self.height
             else:
                 count += 1
@@ -886,6 +896,7 @@ class CadModel:
                 layer.id = count
                 self.layers.append(layer)
                 
+                lastz = z
                 z += self.height
                 self.queue.put(count)
 
