@@ -816,6 +816,7 @@ class CadModel:
         print >> f, '</slice>'
 
     def slice(self, para):
+        self.sliced = False
         self.height = float(para["height"])
         self.pitch = float(para["pitch"])
         self.speed = float(para["speed"])
@@ -1139,7 +1140,7 @@ class ModelCanvas(glcanvas.GLCanvas):
             bottom = -half
             top = half
         near = 0
-        far = maxlen * 2
+        far = maxlen * 4
         glOrtho(left, right, bottom, top, near, far)    
 
     def setupGLContext(self):
