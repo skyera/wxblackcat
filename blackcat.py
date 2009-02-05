@@ -908,10 +908,6 @@ class CadModel:
             glColor(1, 0, 0)
             glBegin(GL_TRIANGLES)
             for facet in self.facets:
-                r = random.random()
-                g = random.random()
-                b = random.random()
-                #glColor(r, g, b)
                 normal = facet.normal
                 glNormal3f(normal.x, normal.y, normal.z)
                 for p in facet.points:
@@ -920,6 +916,7 @@ class CadModel:
         glEndList()
 
     def createGLLayerList(self):
+        assert self.sliced
         layer = self.getCurrLayer()
         return layer.createGLList()
 
@@ -982,17 +979,15 @@ class PathCanvas(glcanvas.GLCanvas):
         glOrtho(left, right, bottom, top, near, far)           
 
     def showPath(self):
-        if not self.cadModel or not self.cadModel.sliced:
-            return
-
-        self.setupProjection()
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
-        layer = self.cadModel.getCurrLayer()
-        z = layer.z
-        glTranslatef(-self.cadModel.xcenter, -self.cadModel.ycenter, -z)
-        layerId = self.cadModel.createGLLayerList()
-        glCallList(layerId)
+        if self.cadModel and self.cadModel.sliced:
+            self.setupProjection()
+            glMatrixMode(GL_MODELVIEW)
+            glLoadIdentity()
+            layer = self.cadModel.getCurrLayer()
+            z = layer.z
+            glTranslatef(-self.cadModel.xcenter, -self.cadModel.ycenter, -z)
+            layerId = self.cadModel.createGLLayerList()
+            glCallList(layerId)
 
             
 class ModelCanvas(glcanvas.GLCanvas):
@@ -1001,10 +996,8 @@ class ModelCanvas(glcanvas.GLCanvas):
         glcanvas.GLCanvas.__init__(self, parent, -1)
         self.init = False
         self.cadModel = None
-        # initial mouse position
         self.lastx = self.x = 30
         self.lasty = self.y = 30
-        self.size = None
         self.xangle = 0
         self.yangle = 0
 
@@ -1014,9 +1007,6 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.Bind(wx.EVT_LEFT_DOWN, self.OnMouseDown)
         self.Bind(wx.EVT_LEFT_UP, self.OnMouseUp)
         self.Bind(wx.EVT_MOTION, self.OnMouseMotion)
-        self.loaded = False
-
-        self.modelList = 1000
 
     def OnEraseBackground(self, event):
         pass # Do nothing, to avoid flashing on MSW.
@@ -1033,7 +1023,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.SwapBuffers()
 
     def showModel(self):
-        if not self.loaded:
+        if self.cadModel == None:
             return
         
         #self.setupGLContext()
@@ -1072,7 +1062,6 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.cadModel = cadModel
         self.xangle = 0
         self.yangle = 0
-        self.loaded = True
         self.SetCurrent()
         
         if not self.init:
@@ -1435,18 +1424,18 @@ class BlackcatFrame(wx.Frame):
             self.cadmodel.queue = Queue.Queue()
             thread.start_new_thread(self.cadmodel.slice, (self.sliceParameter,))
             noLayers = self.cadmodel.queue.get()
-            dlg = wx.ProgressDialog("Slicing in progress", "Progress", noLayers, 
+            pdlg = wx.ProgressDialog("Slicing in progress", "Progress", noLayers, 
                                     style=wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME|wx.PD_AUTO_HIDE|wx.PD_APP_MODAL)
             
             while True:
                 count = self.cadmodel.queue.get()
                 if count == 'done':
                     count = noLayers
-                    dlg.Update(count)
+                    pdlg.Update(count)
                     break
                 else:
-                    dlg.Update(count)
-            dlg.Destroy()
+                    pdlg.Update(count)
+            pdlg.Destroy()
             
             if self.cadmodel.sliced:
                 self.modelCanvas.setModel(self.cadmodel)
@@ -1460,8 +1449,6 @@ class BlackcatFrame(wx.Frame):
                 self.Refresh()
                 wx.MessageBox("no layers", "Warning")
 
-        else:
-            print 'Cancel'
         dlg.Destroy()
 
     def OnQuit(self, event):
