@@ -27,7 +27,6 @@ except ImportError, e:
 
 try:
     from wx import glcanvas
-    haveGLCanvas = True
 except ImportError, e:
     print e
     sys.exit()
@@ -222,14 +221,8 @@ class Facet:
                 line = self.intersect_1_vertex(points[L1[0]], p1, p2, z)
             else:
                 line = None
-        elif n == 2:
+        elif n == 2 or n == 3:
             raise FormatError
-            i1 = L1[0]
-            i2 = L1[1]
-            line = Line(points[i1], points[i2])
-        elif n == 3:
-            raise FormatError
-            line = None
         else:
             assert 0
         
@@ -488,7 +481,6 @@ class Layer:
                 x = self.intersect_1(y, p, line, loop)
             elif count == 2:
                 raise FormatError
-                x = None
 
             return x
         else:
@@ -878,7 +870,6 @@ class CadModel:
         no = int(no)
         self.queue.put(no)
         while z > self.minz and z <= self.maxz:
-            print '-' * 40
             layer = self.createOneLayer(z)
             
             if layer == False:
@@ -893,7 +884,7 @@ class CadModel:
                 z += self.height
             else:
                 count += 1
-                print 'layer', count, '/', no
+                print 'layer', count, '/', no, '\n'
                 layer.id = count
                 self.layers.append(layer)
                 
@@ -1279,13 +1270,13 @@ class ControlPanel(wx.Panel):
     def setCurrLayer(self, curr):
         self.txtFields["currlayer"].SetValue(str(curr))
 
-sliceParameter = {"height":"1.0", "pitch":"1.0", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
 
 
-class BlackCatFrame(wx.Frame):
+class BlackcatFrame(wx.Frame):
 
     def __init__(self):
-        wx.Frame.__init__(self, None, -1, "Black Cat", size=(800, 600))
+        wx.Frame.__init__(self, None, -1, "Blackcat - STL CAD file slicer", size=(800, 600))
+        self.sliceParameter = {"height":"1.0", "pitch":"1.0", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
         self.createMenuBar()
         self.createToolbar()
         self.cadmodel = CadModel()
@@ -1385,11 +1376,11 @@ class BlackCatFrame(wx.Frame):
         self.SetMenuBar(menubar)    
 
     def menuData(self):
-        return (("&File", ("&Open", "Open CAD file", self.OnOpen),
-                          ("&Slice", "Slice CAD model", self.OnSlice),
-                          ("Save", "Save slice result as xml file", self.OnSave),  
+        return (("&File", ("&Open\tCtrl+o", "Open CAD file", self.OnOpen),
+                          ("S&lice\tCtrl+l", "Slice CAD model", self.OnSlice),
+                          ("&Save\tCtrl+s", "Save slice result as xml file", self.OnSave),  
                           ("", "", ""),
-                         ("&Quit", "Quit", self.OnQuit)),
+                         ("&Quit\tCtrl+q", "Quit", self.OnQuit)),
                 ("Edit", ("Next Layer\tpgdn", "next layer", self.OnNextLayer),
                          ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer)),
                 ("&Help", ("&About", "About this program", self.OnAbout))
@@ -1453,15 +1444,15 @@ class BlackCatFrame(wx.Frame):
             wx.MessageBox("load a CAD model first", "warning")
             return
 
-        dlg = ParaDialog(self)
+        dlg = ParaDialog(self, self.sliceParameter)
         result = dlg.ShowModal()
         if result == wx.ID_OK:
-            sliceParameter =  dlg.getValues()
+            dlg.getValues()
             print 'slicing...'
             self.cadmodel.queue = Queue.Queue()
-            thread.start_new_thread(self.cadmodel.slice, (sliceParameter,))
+            thread.start_new_thread(self.cadmodel.slice, (self.sliceParameter,))
             noLayers = self.cadmodel.queue.get()
-            dlg = wx.ProgressDialog("Slicing in progress", "Time remaining", noLayers, 
+            dlg = wx.ProgressDialog("Slicing in progress", "Progress", noLayers, 
                                     style=wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME|wx.PD_AUTO_HIDE|wx.PD_APP_MODAL)
             
             while True:
@@ -1477,7 +1468,7 @@ class BlackCatFrame(wx.Frame):
             if self.cadmodel.sliced:
                 self.modelCanvas.setModel(self.cadmodel)
                 self.leftPanel.setDimension(self.cadmodel.dimension)
-                self.leftPanel.setSliceInfo(sliceParameter)
+                self.leftPanel.setSliceInfo(self.sliceParameter)
                 self.leftPanel.setNoLayer(len(self.cadmodel.layers))
                 self.leftPanel.setCurrLayer(self.cadmodel.currLayer + 1)
                 self.pathCanvas.setModel(self.cadmodel)
@@ -1521,14 +1512,13 @@ class CharValidator(wx.PyValidator):
                 textCtrl.SetBackgroundColour('pink')
                 textCtrl.SetFocus()
                 textCtrl.Refresh()
-
                 return False
+            
             if value <= 0:
                 wx.MessageBox("value <= 0!", "Error")
                 textCtrl.SetBackgroundColour('pink')
                 textCtrl.SetFocus()
                 textCtrl.Refresh()
-
                 return False
 
         textCtrl.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
@@ -1559,7 +1549,6 @@ class SlicePanel(wx.Panel):
     def __init__(self, parent, data):
         wx.Panel.__init__(self, parent, -1)
         self.data = data
-        self.txtList = []
         self.createControls()
 
     def createControls(self):
@@ -1575,7 +1564,6 @@ class SlicePanel(wx.Panel):
             box.Add(lbl, 0, 0)
             txt = wx.TextCtrl(self, -1, dvalue, size=(80, -1), validator=CharValidator(self.data, key))
             box.Add(txt, 0, 0)
-            self.txtList.append(txt)
         sizer.Add(box, 0, 0)
         
         # slice direction
@@ -1586,7 +1574,6 @@ class SlicePanel(wx.Panel):
         self.dirChoice = dirChoice = wx.Choice(self, -1, (160, -1), choices=self.dirList)
         dirChoice.SetStringSelection(self.data['direction'])
         box.Add(dirChoice, 0, wx.EXPAND)
-        self.txtList.append(dirChoice)
         
         # scale
         lbl = wx.StaticText(self, label="Scale factor")
@@ -1594,16 +1581,15 @@ class SlicePanel(wx.Panel):
         scaleTxt = wx.TextCtrl(self, -1, "1", size=(80, -1), validator=CharValidator(self.data, "scale"))
         box.Add(scaleTxt, 0, wx.EXPAND)
         self.SetSizer(outsizer)
-        self.txtList.append(scaleTxt)
 
-    def getSliceDir(self):
-        self.data["direction"] = self.dirList[self.dirChoice.GetCurrentSelection()]
-        self.Validate()
+    def getDirection(self):
+        return self.dirChoice.GetStringSelection()
 
 
 class ParaDialog(wx.Dialog):
 
-    def __init__(self, parent):
+    def __init__(self, parent, sliceParameter):
+        self.sliceParameter = sliceParameter
         pre = wx.PreDialog()
         pre.SetExtraStyle(wx.WS_EX_VALIDATE_RECURSIVELY)
         pre.Create(parent, -1, "Slice parameters")
@@ -1612,7 +1598,7 @@ class ParaDialog(wx.Dialog):
 
     def createControls(self):
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.panel = SlicePanel(self, sliceParameter)
+        self.panel = SlicePanel(self, self.sliceParameter)
         sizer.Add(self.panel, 0, 0)
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
         
@@ -1632,10 +1618,16 @@ class ParaDialog(wx.Dialog):
         self.Fit()
     
     def getValues(self):
-        self.panel.getSliceDir()
-        return sliceParameter
+        self.sliceParameter["direction"] = self.panel.getDirection()
+
+
+class BlackcatApp(wx.App):
+    
+    def OnInit(self):
+        self.frame = BlackcatFrame()
+        self.frame.Show()
+        return True
 
 if __name__ == '__main__':
-    app = wx.PySimpleApp()
-    BlackCatFrame().Show()
+    app = BlackcatApp()
     app.MainLoop()
