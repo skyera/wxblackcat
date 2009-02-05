@@ -92,23 +92,6 @@ class Line:
     def __str__(self):
         return str(self.p1) + " -> " + str(self.p2)
 
-    def __eq__(self, other):
-        ret = (self.p1 == other.p1 and self.p2 == other.p2) or (self.p1 == other.p2 and self.p2 == other.p1)
-        return ret
-
-    def __cmp__(self, other):
-        L1 = [self.p1, self.p2]
-        L2 = [other.p1, other.p2]
-        L1.sort()
-        L2.sort()
-        
-        if L1 == L2:
-            return 0
-        elif L1 < L2:
-            return -1
-        else:
-            return 1
-    
     def length(self):
         dx = self.p1.x - self.p2.x
         dy = self.p1.y - self.p2.y
@@ -125,14 +108,6 @@ class Line:
         else:
             k = diffy / diffx
             return k
-
-    def __hash__(self):
-        L = [self.p1, self.p2]
-        L.sort()
-        s = ''
-        for it in L: 
-            s += str(it)
-        return hash(s)
 
 def intersect(x1, y1, x2, y2, x):
     ''' compute y'''
@@ -211,7 +186,6 @@ class Facet:
         n = len(L1)
         if n == 0:
             line = self.intersect_0_vertex(points, z)
-            assert line
         elif n == 1:
             i1 = L2[0]
             i2 = L2[1]
@@ -222,13 +196,10 @@ class Facet:
             else:
                 line = None
         elif n == 2 or n == 3:
-            raise FormatError
+            return "redo"
         else:
             assert 0
         
-        if line:
-            length = line.length()
-            assert length > 0.0
         return line
 
     def intersect_0_vertex(self, points, z):
@@ -422,12 +393,10 @@ class Layer:
         s = set()
         for loop in self.loops:
             for line in loop:
-                try:
-                    x = self.intersect(y, line, loop)
-                except FormatError:
+                x = self.intersect(y, line, loop)
+                if x == 'redo':
                     return 'redo'
-
-                if x != None:
+                elif x != None:
                     s.add('%.6f' % x)
         
         xlist = map(lambda x: float(x), s)
@@ -468,7 +437,7 @@ class Layer:
             elif count == 1:
                 x = self.intersect_1(y, p, line, loop)
             elif count == 2:
-                raise FormatError
+                return "redo"
 
             return x
         else:
@@ -885,11 +854,10 @@ class CadModel:
         layer = Layer(z, self.pitch)
         lines = []
         for facet in self.facets:
-            try:
-                line = facet.intersect(z) 
-            except FormatError:
+            line = facet.intersect(z) 
+            if line == 'redo':
                 return 'redo'
-            if line:
+            elif line:
                 lines.append(line)
         
         if len(lines) != 0:
@@ -1435,10 +1403,11 @@ class BlackcatFrame(wx.Frame):
                         pdlg.Update(count)
                 pdlg.Destroy()
             
+            self.modelCanvas.createModel()
+            self.leftPanel.setDimension(self.cadmodel.dimension)
+            self.leftPanel.setSliceInfo(self.sliceParameter)
+
             if self.cadmodel.sliced:
-                self.modelCanvas.createModel()
-                self.leftPanel.setDimension(self.cadmodel.dimension)
-                self.leftPanel.setSliceInfo(self.sliceParameter)
                 self.leftPanel.setNoLayer(len(self.cadmodel.layers))
                 self.leftPanel.setCurrLayer(self.cadmodel.currLayer + 1)
                 self.pathCanvas.Refresh()
