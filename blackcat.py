@@ -1523,8 +1523,8 @@ class CharValidator(wx.PyValidator):
                 textCtrl.Refresh()
 
                 return False
-            if value < 0:
-                wx.MessageBox("value < 0!", "Error")
+            if value <= 0:
+                wx.MessageBox("value <= 0!", "Error")
                 textCtrl.SetBackgroundColour('pink')
                 textCtrl.SetFocus()
                 textCtrl.Refresh()
