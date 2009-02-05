@@ -277,10 +277,6 @@ class Layer:
         
         glColor(1, 1, 1)
         for loop in self.loops:
-            r = random.random()
-            g = random.random()
-            b = random.random()
-            #glColor(r, g, b)
             for line in loop:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
@@ -391,14 +387,6 @@ class Layer:
                 loop.remove(it)
             nloop.append(Line(p1, p2))
         
-        head = nloop[0]
-        tail = nloop[-1]
-        assert head.p1 == tail.p2
-        
-        #for i in range(0, len(nloop) - 1):
-        #    k1 = nloop[i]
-        #    k2 = nloop[i + 1]
-        #    #assert k1 != k2
         return nloop
 
     def calcDimension(self):
@@ -522,10 +510,6 @@ class Layer:
         for it in loop:
             if point in (it.p1, it.p2):
                 L.append(it)
-        
-        n = len(L)
-        
-        assert line in L
         
         peak = self.isPeak(y, point, L)
         
@@ -1269,7 +1253,6 @@ class ControlPanel(wx.Panel):
 
     def setCurrLayer(self, curr):
         self.txtFields["currlayer"].SetValue(str(curr))
-
 
 
 class BlackcatFrame(wx.Frame):
