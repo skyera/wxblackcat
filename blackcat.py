@@ -1402,7 +1402,7 @@ class BlackcatFrame(wx.Frame):
 
     def OnAbout(self, event):
         info = wx.AboutDialogInfo()
-        info.Name = "BlackCat"
+        info.Name = "Blackcat"
         info.Version = "0.1"
         info.Copyright = "(C) 2009"
         info.Description = "Slice stl CAD model"
