@@ -1606,6 +1606,9 @@ class ParaDialog(wx.Dialog):
 
 class BlackcatApp(wx.App):
     
+    def __init__(self, redirect=False, filename=None):
+        wx.App.__init__(self, redirect, filename)
+
     def OnInit(self):
         self.frame = BlackcatFrame()
         self.frame.Show()
