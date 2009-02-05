@@ -988,10 +988,10 @@ class PathCanvas(glcanvas.GLCanvas):
             
 class ModelCanvas(glcanvas.GLCanvas):
 
-    def __init__(self, parent):
+    def __init__(self, parent, cadModel):
         glcanvas.GLCanvas.__init__(self, parent, -1)
         self.init = False
-        self.cadModel = None
+        self.cadModel = cadModel
         self.lastx = self.x = 30
         self.lasty = self.y = 30
         self.xangle = 0
@@ -1013,13 +1013,13 @@ class ModelCanvas(glcanvas.GLCanvas):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.showModel()
 
-        if self.cadModel and self.cadModel.sliced:
+        if self.cadModel.sliced:
             layerId = self.cadModel.createGLLayerList()
             glCallList(layerId)
         self.SwapBuffers()
 
     def showModel(self):
-        if self.cadModel == None:
+        if not self.cadModel.loaded:
             return
         
         #self.setupGLContext()
@@ -1054,8 +1054,7 @@ class ModelCanvas(glcanvas.GLCanvas):
             self.yangle += (self.x - self.lastx)
             self.Refresh(False)
 
-    def setModel(self, cadModel):
-        self.cadModel = cadModel
+    def createModel(self):
         self.xangle = 0
         self.yangle = 0
         self.SetCurrent()
@@ -1312,7 +1311,7 @@ class BlackcatFrame(wx.Frame):
         self.sp.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGED, self.OnPosChanging)
         
         # Model canvas
-        self.modelCanvas = ModelCanvas(self.modelPanel)
+        self.modelCanvas = ModelCanvas(self.modelPanel, self.cadmodel)
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.modelCanvas, 1, wx.EXPAND)
         self.modelPanel.SetSizer(sizer)
@@ -1397,7 +1396,7 @@ class BlackcatFrame(wx.Frame):
             print 'open', path
             ok = self.cadmodel.open(path)
             if ok:
-                self.modelCanvas.setModel(self.cadmodel)
+                self.modelCanvas.createModel()
                 self.pathCanvas.Refresh()
                 self.leftPanel.setDimension(self.cadmodel.dimension)
                 basename = os.path.basename(path)
@@ -1420,21 +1419,22 @@ class BlackcatFrame(wx.Frame):
             self.cadmodel.queue = Queue.Queue()
             thread.start_new_thread(self.cadmodel.slice, (self.sliceParameter,))
             noLayers = self.cadmodel.queue.get()
-            pdlg = wx.ProgressDialog("Slicing in progress", "Progress", noLayers, 
-                                    style=wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME|wx.PD_AUTO_HIDE|wx.PD_APP_MODAL)
+            if noLayers > 0:
+                pdlg = wx.ProgressDialog("Slicing in progress", "Progress", noLayers, 
+                                          style=wx.PD_ELAPSED_TIME|wx.PD_REMAINING_TIME|wx.PD_AUTO_HIDE|wx.PD_APP_MODAL)
             
-            while True:
-                count = self.cadmodel.queue.get()
-                if count == 'done':
-                    count = noLayers
-                    pdlg.Update(count)
-                    break
-                else:
-                    pdlg.Update(count)
-            pdlg.Destroy()
+                while True:
+                    count = self.cadmodel.queue.get()
+                    if count == 'done':
+                        count = noLayers
+                        pdlg.Update(count)
+                        break
+                    else:
+                        pdlg.Update(count)
+                pdlg.Destroy()
             
             if self.cadmodel.sliced:
-                self.modelCanvas.setModel(self.cadmodel)
+                self.modelCanvas.createModel()
                 self.leftPanel.setDimension(self.cadmodel.dimension)
                 self.leftPanel.setSliceInfo(self.sliceParameter)
                 self.leftPanel.setNoLayer(len(self.cadmodel.layers))
