@@ -922,13 +922,13 @@ class CadModel:
 
 class PathCanvas(glcanvas.GLCanvas):
 
-    def __init__(self, parent):
+    def __init__(self, parent, cadModel):
         glcanvas.GLCanvas.__init__(self, parent, -1)
 
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
-        self.cadModel = None
+        self.cadModel = cadModel
 
     def OnEraseBackground(self, event):
         pass
@@ -947,10 +947,6 @@ class PathCanvas(glcanvas.GLCanvas):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.showPath()
         self.SwapBuffers()
-
-    def setModel(self, cadModel):
-        self.cadModel = cadModel
-        self.Refresh()
 
     def setupProjection(self):
         maxlen = self.cadModel.diameter
@@ -979,7 +975,7 @@ class PathCanvas(glcanvas.GLCanvas):
         glOrtho(left, right, bottom, top, near, far)           
 
     def showPath(self):
-        if self.cadModel and self.cadModel.sliced:
+        if self.cadModel.sliced:
             self.setupProjection()
             glMatrixMode(GL_MODELVIEW)
             glLoadIdentity()
@@ -1327,7 +1323,7 @@ class BlackcatFrame(wx.Frame):
         self.SetSizer(box)
 
         # Path canvas
-        self.pathCanvas = PathCanvas(self.pathPanel)
+        self.pathCanvas = PathCanvas(self.pathPanel, self.cadmodel)
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.pathCanvas, 1, wx.EXPAND)
         self.pathPanel.SetSizer(sizer)
@@ -1402,7 +1398,7 @@ class BlackcatFrame(wx.Frame):
             ok = self.cadmodel.open(path)
             if ok:
                 self.modelCanvas.setModel(self.cadmodel)
-                self.pathCanvas.setModel(None)
+                self.pathCanvas.Refresh()
                 self.leftPanel.setDimension(self.cadmodel.dimension)
                 basename = os.path.basename(path)
                 root, ext = os.path.splitext(basename)
@@ -1443,7 +1439,7 @@ class BlackcatFrame(wx.Frame):
                 self.leftPanel.setSliceInfo(self.sliceParameter)
                 self.leftPanel.setNoLayer(len(self.cadmodel.layers))
                 self.leftPanel.setCurrLayer(self.cadmodel.currLayer + 1)
-                self.pathCanvas.setModel(self.cadmodel)
+                self.pathCanvas.Refresh()
                 
             else:
                 self.Refresh()
