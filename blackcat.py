@@ -1012,11 +1012,13 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.SetCurrent()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.showModel()
-
+        self.showPath()
+        self.SwapBuffers()
+    
+    def showPath(self):
         if self.cadModel.sliced:
             layerId = self.cadModel.createGLLayerList()
             glCallList(layerId)
-        self.SwapBuffers()
 
     def showModel(self):
         if not self.cadModel.loaded:
