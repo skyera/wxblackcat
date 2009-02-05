@@ -949,12 +949,12 @@ class PathCanvas(glcanvas.GLCanvas):
         self.SwapBuffers()
 
     def setupProjection(self):
-        maxlen = self.cadModel.diameter
+        diameter = self.cadModel.diameter
         size = self.GetClientSize()
         w = size.width
         h = size.height
         
-        half = maxlen / 2
+        half = diameter / 2
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
 
@@ -971,7 +971,7 @@ class PathCanvas(glcanvas.GLCanvas):
             bottom = -half
             top = half
         near = 0
-        far = maxlen * 2
+        far = diameter * 2
         glOrtho(left, right, bottom, top, near, far)           
 
     def showPath(self):
