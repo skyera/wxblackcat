@@ -2,6 +2,7 @@
 #-----------------------------------------------------------------------------
 # Author     : Zhigang Liu
 # Date       : Jan 2009
+# Email      : zgliu71@gmail.com
 # License    : General Public License 2 (GPL2) 
 # Description: Slice STL CAD file layer by layer
 #-----------------------------------------------------------------------------
