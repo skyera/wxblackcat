@@ -560,10 +560,10 @@ class Layer:
 def writeline(line, f):
     print >> f, '<line>'
     for p in (line.p1, line.p2):
-        print >> f, '<point>'
-        print >> f, '<x>', p.x, '</x>'
-        print >> f, '<y>', p.y, '</y>'
-        print >> f, '<z>', p.z, '</z>'
+        print >> f, '<point>',
+        print >> f, '<x>', p.x, '</x>',
+        print >> f, '<y>', p.y, '</y>',
+        print >> f, '<z>', p.z, '</z>',
         print >> f, '</point>'
     print >> f, '</line>'        
 
