@@ -308,7 +308,6 @@ class Layer:
             nloop = self.mergeLines(loop)
             self.loops.append(nloop)
         
-        print 'no of loops', len(self.loops)
         return True                
     
     def moveLines(self, loop):
@@ -528,45 +527,44 @@ class Layer:
             
             self.chunks.append(chunk)
             scanlines = filter(lambda x: len(x) > 0, scanlines)
-        print 'no of chunks', len(self.chunks)
     
     def write(self, f):
-        print >> f, '\t<layer id="', self.id, '">'
+        print >> f, '<layer id="', self.id, '">'
         self.writeloop(f)
         self.writechunks(f)
-        print >> f, '\t</layer>'
+        print >> f, '</layer>'
     
     def writeloop(self, f):
-        print >> f, '\t\t<loops num="', len(self.loops), '">'
+        print >> f, '<loops num="', len(self.loops), '">'
         count = 1
         for loop in self.loops:
-            print >> f, '\t\t\t<loop id="', count, '">'
+            print >> f, '<loop id="', count, '">'
             for line in loop:
                 writeline(line, f)
-            print >> f, '\t\t\t</loop>'                
+            print >> f, '</loop>'                
             count += 1
-        print >> f, '\t\t</loops>'
+        print >> f, '</loops>'
 
     def writechunks(self, f):
-        print >> f, '\t\t<chunks num="', len(self.chunks), '">'
+        print >> f, '<chunks num="', len(self.chunks), '">'
         count = 1
         for chunk in self.chunks:
-            print >> f, '\t\t\t<chunk id="', count, '">'
+            print >> f, '<chunk id="', count, '">'
             for line in chunk:
                 writeline(line, f)
-            print >> f, '\t\t\t</chunk>'
+            print >> f, '</chunk>'
             count += 1
-        print >> f, '\t\t</chunks>'
+        print >> f, '</chunks>'
 
 def writeline(line, f):
-    print >> f, '\t\t\t\t<line>'
+    print >> f, '<line>'
     for p in (line.p1, line.p2):
-        print >> f, '\t\t\t\t\t<point>'
-        print >> f, '\t' * 6, '<x>', p.x, '</x>'
-        print >> f, '\t' * 6, '<y>', p.y, '</y>'
-        print >> f, '\t' * 6, '<z>', p.z, '</z>'
-        print >> f, '\t\t\t\t\t</point>'
-    print >> f, '\t\t\t\t</line>'        
+        print >> f, '<point>'
+        print >> f, '<x>', p.x, '</x>'
+        print >> f, '<y>', p.y, '</y>'
+        print >> f, '<z>', p.z, '</z>'
+        print >> f, '</point>'
+    print >> f, '</line>'        
 
 
 class CadModel:
@@ -837,7 +835,6 @@ class CadModel:
                 z += self.height
             else:
                 count += 1
-                print 'layer', count, '/', no, '\n'
                 layer.id = count
                 self.layers.append(layer)
                 
@@ -1406,14 +1403,12 @@ class BlackcatFrame(wx.Frame):
             self.modelCanvas.createModel()
             self.leftPanel.setDimension(self.cadmodel.dimension)
             self.leftPanel.setSliceInfo(self.sliceParameter)
+            self.pathCanvas.Refresh()
 
             if self.cadmodel.sliced:
                 self.leftPanel.setNoLayer(len(self.cadmodel.layers))
                 self.leftPanel.setCurrLayer(self.cadmodel.currLayer + 1)
-                self.pathCanvas.Refresh()
-                
             else:
-                self.Refresh()
                 wx.MessageBox("no layers", "Warning")
 
         dlg.Destroy()
