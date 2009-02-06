@@ -773,10 +773,10 @@ class CadModel:
         self.changeDirection(self.direction)
         self.calcDimension()
         self.createLayers()
+        self.setNewDimension()
         if len(self.layers) > 0:
             self.sliced = True
             self.currLayer = 0
-            self.setNewDimension()
             return True
         else:
             self.sliced = False
