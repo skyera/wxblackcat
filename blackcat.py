@@ -842,6 +842,7 @@ class CadModel:
                 lastz = z
                 z += self.height
                 self.queue.put(count)
+                print 'layer', count, '/', no
 
         self.queue.put("done")                
         print 'no of layers:', len(self.layers)                
