@@ -1221,13 +1221,9 @@ class BlackcatFrame(wx.Frame):
         self.Centre()
 
     def createToolbar(self):
-        self.ID_OPEN = 1000
         self.ID_SLICE = 1001
         self.ID_NEXT = 2000
         self.ID_PREV = 2001
-        self.ID_SAVE = 2002
-        self.ID_ABOUT = 2003
-        self.ID_QUIT = 2004
 
         toolbar = self.CreateToolBar()
         img_open = wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN)
@@ -1238,22 +1234,22 @@ class BlackcatFrame(wx.Frame):
         img_help = wx.ArtProvider.GetBitmap(wx.ART_HELP, client=wx.ART_TOOLBAR)
         img_quit = wx.ArtProvider.GetBitmap(wx.ART_QUIT)
 
-        toolbar.AddLabelTool(self.ID_OPEN, 'open', img_open, shortHelp='open file', longHelp='open CAD model')
+        toolbar.AddLabelTool(wx.ID_OPEN, 'open', img_open, shortHelp='open file', longHelp='open CAD model')
         toolbar.AddLabelTool(self.ID_SLICE, 'slice', img_slice, shortHelp='slice modal')
-        toolbar.AddLabelTool(self.ID_SAVE, 'save', img_save, shortHelp='save slice info', longHelp='save slice result')
+        toolbar.AddLabelTool(wx.ID_SAVE, 'save', img_save, shortHelp='save slice info', longHelp='save slice result')
         toolbar.AddLabelTool(self.ID_NEXT, 'next', img_next, shortHelp='next layer')
         toolbar.AddLabelTool(self.ID_PREV, 'prev', img_prev, shortHelp='previous layer')
-        toolbar.AddLabelTool(self.ID_ABOUT, 'about', img_help, shortHelp='about')
-        toolbar.AddLabelTool(self.ID_QUIT, 'quit', img_quit, shortHelp='quit')
+        toolbar.AddLabelTool(wx.ID_ABOUT, 'about', img_help, shortHelp='about')
+        toolbar.AddLabelTool(wx.ID_EXIT, 'quit', img_quit, shortHelp='quit')
         toolbar.Realize()
 
-        self.Bind(wx.EVT_TOOL, self.OnOpen, id=self.ID_OPEN)
-        self.Bind(wx.EVT_TOOL, self.OnSave, id=self.ID_SAVE)
+        self.Bind(wx.EVT_TOOL, self.OnOpen, id=wx.ID_OPEN)
+        self.Bind(wx.EVT_TOOL, self.OnSave, id=wx.ID_SAVE)
         self.Bind(wx.EVT_TOOL, self.OnSlice, id=self.ID_SLICE)
         self.Bind(wx.EVT_TOOL, self.OnNextLayer, id=self.ID_NEXT)
         self.Bind(wx.EVT_TOOL, self.OnPrevLayer, id=self.ID_PREV)
-        self.Bind(wx.EVT_TOOL, self.OnAbout, id=self.ID_ABOUT)
-        self.Bind(wx.EVT_TOOL, self.OnQuit, id=self.ID_QUIT)
+        self.Bind(wx.EVT_TOOL, self.OnAbout, id=wx.ID_ABOUT)
+        self.Bind(wx.EVT_TOOL, self.OnQuit, id=wx.ID_EXIT)
         
     def OnNextLayer(self, event):
         if not self.cadmodel.sliced:
@@ -1312,14 +1308,14 @@ class BlackcatFrame(wx.Frame):
         self.SetMenuBar(menubar)    
 
     def menuData(self):
-        return (("&File", ("&Open\tCtrl+o", "Open CAD file", self.OnOpen),
-                          ("S&lice\tCtrl+l", "Slice CAD model", self.OnSlice),
-                          ("&Save\tCtrl+s", "Save slice result as xml file", self.OnSave),  
-                          ("", "", ""),
-                         ("&Quit\tCtrl+q", "Quit", self.OnQuit)),
-                ("Edit", ("Next Layer\tpgdn", "next layer", self.OnNextLayer),
-                         ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer)),
-                ("&Help", ("&About", "About this program", self.OnAbout))
+        return (("&File", ("&Open\tCtrl+o", "Open CAD file", self.OnOpen, wx.ID_OPEN),
+                          ("S&lice\tCtrl+l", "Slice CAD model", self.OnSlice, -1),
+                          ("&Save\tCtrl+s", "Save slice result as xml file", self.OnSave, wx.ID_SAVE),  
+                          ("", "", "", ""),
+                         ("&Quit\tCtrl+q", "Quit", self.OnQuit, wx.ID_EXIT)),
+                ("Edit", ("Next Layer\tpgdn", "next layer", self.OnNextLayer, -1),
+                         ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer, -1)),
+                ("&Help", ("&About", "About this program", self.OnAbout, -1))
                  )
     
     def OnSave(self, event):
@@ -1348,11 +1344,11 @@ class BlackcatFrame(wx.Frame):
 
     def createMenu(self, menuData):
         menu = wx.Menu()
-        for label, status, handler in menuData:
+        for label, status, handler, id in menuData:
             if not label:
                 menu.AppendSeparator()
                 continue
-            menuItem = menu.Append(-1, label, status)
+            menuItem = menu.Append(id, label, status)
             self.Bind(wx.EVT_MENU, handler, menuItem)
         return menu
 
