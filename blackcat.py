@@ -1315,7 +1315,7 @@ class BlackcatFrame(wx.Frame):
                          ("&Quit\tCtrl+q", "Quit", self.OnQuit, wx.ID_EXIT)),
                 ("Edit", ("Next Layer\tpgdn", "next layer", self.OnNextLayer, -1),
                          ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer, -1)),
-                ("&Help", ("&About", "About this program", self.OnAbout, -1))
+                ("&Help", ("&About", "About this program", self.OnAbout, wx.ID_ABOUT))
                  )
     
     def OnSave(self, event):
