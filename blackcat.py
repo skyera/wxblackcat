@@ -999,7 +999,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glTranslatef(0, 0, -self.cadModel.diameter)
         # Rotate model
         glRotatef(self.xangle, 1, 0, 0)
-        glRotatef(self.yangle, 0, 1, 1)
+        glRotatef(self.yangle, 0, 1, 0)
         
         # Move model to origin
         glTranslatef(-self.cadModel.xcenter, -self.cadModel.ycenter, -self.cadModel.zcenter)
@@ -1074,19 +1074,19 @@ class ModelCanvas(glcanvas.GLCanvas):
     def setupGLContext(self):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        glEnable(GL_LIGHTING);
-        glEnable(GL_LIGHT0);
+        glEnable(GL_LIGHTING)
+        glEnable(GL_LIGHT0)
 
         ambientLight = [0.2, 0.2, 0.2, 1.0]
         diffuseLight = [0.8, 0.8, 0.8, 1.0]
         specularLight = [0.5, 0.5, 0.5, 1.0]
-        position = [-1.5, 1.0, -4.0, 1.0 ]
+        position = [-1.5, 1.0, -4.0, 1.0]
         position = [-15.0, 30.0, -40.0, 1.0]
 
-        glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-        glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
-        glLightfv(GL_LIGHT0, GL_POSITION, position);
+        glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight)
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight)
+        glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight)
+        glLightfv(GL_LIGHT0, GL_POSITION, position)
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
 
         mcolor = [ 0.0, 0.0, 0.4, 1.0]
