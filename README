@@ -1,0 +1,4 @@
+In order to run this program you need to have
+- python (http://www.python.org)
+- wxPython (http://www.wxpython.org)
+- pyopengl
