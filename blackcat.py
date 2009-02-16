@@ -53,8 +53,19 @@ except ImportError, e:
     print e
     sys.exit()
 
-LIMIT = 1e-8
+ERROR = 2
+REDO = 3
 
+LAYER = 4
+NOT_LAYER = 5
+
+INTERSECTED = 6
+NOT_INTERSECTED = 7
+
+SCANLINE = 8
+NOT_SCANLINE = 9
+
+LIMIT = 1e-8
 def equal(f1, f2):
     if abs(f1 - f2) < LIMIT:
         return True
@@ -186,7 +197,7 @@ class Facet:
         L1 = [True for p in self.points if p.z > z]
         L2 = [True for p in self.points if p.z < z]
         if len(L1) == 3 or len(L2) == 3:
-            return None
+            return (NOT_INTERSECTED, None)
         
         L1 = []
         L2 = []
@@ -201,6 +212,7 @@ class Facet:
         n = len(L1)
         if n == 0:
             line = self.intersect_0_vertex(points, z)
+            code = INTERSECTED
         elif n == 1:
             i1 = L2[0]
             i2 = L2[1]
@@ -208,14 +220,15 @@ class Facet:
             p2 = points[i2]
             if isIntersect(p1, p2, z):
                 line = self.intersect_1_vertex(points[L1[0]], p1, p2, z)
+                code = INTERSECTED
             else:
                 line = None
+                code = NOT_INTERSECTED
         elif n == 2 or n == 3:
-            return "redo"
-        else:
-            assert 0
+            code = REDO
+            line = None
         
-        return line
+        return (code, line)
 
     def intersect_0_vertex(self, points, z):
         L = []
@@ -388,17 +401,18 @@ class Layer:
         y = self.miny + self.pitch
         lasty = self.miny
         while y < self.maxy:
-            scanline = self.createOneScanline(y)
-            if scanline == 'redo':
+            code, scanline = self.createOneScanline(y)
+            
+            if code == SCANLINE:
+                self.scanlines.append(scanline)
+                lasty = y
+                y += self.pitch
+            elif code  == REDO:
                 y = y - self.pitch * 0.01                
                 if y < lasty:
                     break
                 
                 print 'recreate scan line'
-            elif len(scanline) != 0:
-                self.scanlines.append(scanline)
-                lasty = y
-                y += self.pitch
             else:
                 lasty = y
                 y += self.pitch
@@ -407,10 +421,10 @@ class Layer:
         s = set()
         for loop in self.loops:
             for line in loop:
-                x = self.intersect(y, line, loop)
-                if x == 'redo':
-                    return 'redo'
-                elif x != None:
+                code, x = self.intersect(y, line, loop)
+                if code == REDO:
+                    return (REDO, None)
+                elif code == INTERSECTED:
                     s.add('%.6f' % x)
         
         xlist = map(lambda x: float(x), s)
@@ -431,7 +445,12 @@ class Layer:
             p2 = Point(x2, y, self.z)
             line = Line(p1, p2)
             lines.append(line)
-        return lines
+        
+        if len(lines) > 0:
+            code = SCANLINE
+        else:
+            code = NOT_SCANLINE
+        return (code, lines)
 
     def intersect(self, y, line, loop):
         y1 = line.p1.y
@@ -448,14 +467,22 @@ class Layer:
             
             if count == 0:
                 x = self.intersect_0(y, line)
+                code = INTERSECTED
             elif count == 1:
-                x = self.intersect_1(y, p, line, loop)
+                if self.isPeak(y, p, line, loop):
+                    code = NOT_INTERSECTED
+                    x = None
+                else:
+                    code = INTERSECTED
+                    x = p.x
             elif count == 2:
-                return "redo"
-
-            return x
+                code = REDO
+                x = None
         else:
-            return None
+            code = NOT_INTERSECTED 
+            x = None
+        
+        return (code, x)
 
     def intersect_0(self, y, line):
         x1 = line.p1.x
@@ -470,36 +497,19 @@ class Layer:
            x = (y -  y1) * (x2 - x1) / (y2 - y1) + x1
            return x
     
-    def isPeak(self, y, point, lines):
+    def isPeak(self, y, point, line, loop):
         L = []
-        for line in lines:
-            if point == line.p1:
-                p = line.p2
-            elif point == line.p2:
-                p = line.p1
-            else:
-                assert 0
-            L.append(p)
+        for it in loop:
+            if point == it.p1:
+                L.append(it.p2)
+            elif point == it.p2:
+                L.append(it.p1)
         
-        n = len(L)
         val = (L[0].y - y) * (L[1].y - y)
         if val > 0.0:
             return True
         else:
             return False
-
-    def intersect_1(self, y, point, line, loop):
-        L = []
-        for it in loop:
-            if point in (it.p1, it.p2):
-                L.append(it)
-        
-        peak = self.isPeak(y, point, L)
-        
-        if peak:
-            return None
-        else:
-            return point.x     
 
     def isIntersect(self, y1, y2, y):
         if (y1 - y) * (y2 - y) <= 0.0:
@@ -838,19 +848,9 @@ class CadModel:
         no = int(no)
         self.queue.put(no)
         while z > self.minz and z <= self.maxz:
-            layer = self.createOneLayer(z)
+            code, layer = self.createOneLayer(z)
             
-            if layer == False:
-                break
-            elif layer == 'redo':
-                z = z - self.height * 0.01
-                if z < lastz:
-                    break
-                print 'recreate layer'
-            elif layer == None:
-                lastz = z
-                z += self.height
-            else:
+            if code == LAYER:
                 count += 1
                 layer.id = count
                 self.layers.append(layer)
@@ -859,7 +859,17 @@ class CadModel:
                 z += self.height
                 self.queue.put(count)
                 print 'layer', count, '/', no
-
+            elif code == ERROR:
+                break
+            elif code == REDO:
+                z = z - self.height * 0.01
+                if z < lastz:
+                    break
+                print 'recreate layer'
+            elif code == NOT_LAYER:
+                lastz = z
+                z += self.height
+           
         self.queue.put("done")                
         print 'no of layers:', len(self.layers)                
         cpu = '%.1f' % (time.time() - start)
@@ -869,20 +879,20 @@ class CadModel:
         layer = Layer(z, self.pitch)
         lines = []
         for facet in self.facets:
-            line = facet.intersect(z) 
-            if line == 'redo':
-                return 'redo'
-            elif line:
+            code, line = facet.intersect(z) 
+            if code == REDO:
+                return (REDO, None)
+            elif code == INTERSECTED:
                 lines.append(line)
         
         if len(lines) != 0:
             ok = layer.setLines(lines)
             if ok:
-                return layer
+                return (LAYER, layer)
             else:
-                return False
+                return (ERROR, None)
         else:
-            return None
+            return (NOT_LAYER, None)
     
     def createGLModelList(self):
         self.modelListId = 1000
