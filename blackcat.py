@@ -761,6 +761,11 @@ class CadModel:
     def save(self, filename):
         f = open(filename, 'w')
         print >> f, '<slice>'
+        print >> f, '    <dimension>'
+        print >> f, '        <x>', self.xsize, '</x>'
+        print >> f, '        <y>', self.ysize, '</y>'
+        print >> f, '        <z>', self.zsize, '</z>'
+        print >> f, '    </dimension>'
         print >> f, '    <para>'
         print >> f, '         <layerheight>', self.height, '</layerheight>'
         print >> f, '         <layerpitch>', self.pitch, '</layerpitch>'
@@ -812,13 +817,10 @@ class CadModel:
         self.facets = []
         for facet in self.oldfacets:
             nfacet = copy.deepcopy(facet)
-            ps = []
             for p in nfacet.points:
                 p.x *= factor
                 p.y *= factor
                 p.z *= factor
-                ps.append(p)
-            nfacet.points = ps
             self.facets.append(nfacet)
     
     def changeDirection(self, direction):
