@@ -1194,10 +1194,10 @@ class ControlPanel(wx.Panel):
         img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
         w = img.GetWidth()
         h = img.GetHeight()
-        factor = 0.8
+        factor = 0.6
         img2 = img.Scale(w * factor, h * factor)
         sb = wx.StaticBitmap(self, -1, wx.BitmapFromImage(img2), style=wx.SUNKEN_BORDER)
-        sizer.Add(sb)
+        sizer.Add(sb, 0, wx.ALIGN_CENTER_HORIZONTAL)
 
     def createSliceInfo(self):
         self.txtFields = {}
