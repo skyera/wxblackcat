@@ -1197,7 +1197,7 @@ class ControlPanel(wx.Panel):
         factor = 0.6
         img = img.Scale(w * factor, h * factor)
         img = img.ConvertToGreyscale()
-        sb = wx.StaticBitmap(self, -1, wx.BitmapFromImage(img), style=wx.SUNKEN_BORDER)
+        sb = wx.StaticBitmap(self, -1, wx.BitmapFromImage(img), style=wx.RAISED_BORDER)
         sizer.Add(sb, 0, wx.ALIGN_CENTER_HORIZONTAL)
 
     def createSliceInfo(self):
