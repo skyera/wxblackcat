@@ -1190,7 +1190,7 @@ class ControlPanel(wx.Panel):
         sizer.Add(sliceSizer, 0, wx.EXPAND)
 
         # image
-        sizer.Add((10, 10), 1, wx.ALL|wx.EXPAND, 5)
+        sizer.AddStretchSpacer()
         img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
         w = img.GetWidth()
         h = img.GetHeight()
