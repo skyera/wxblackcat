@@ -38,7 +38,7 @@ try:
     import psyco
     psyco.full()
 except ImportError, e:
-    print e
+    pass
 
 try:
     from wx import glcanvas
@@ -55,17 +55,14 @@ except ImportError, e:
 
 ERROR = 2
 REDO = 3
-
 LAYER = 4
 NOT_LAYER = 5
-
 INTERSECTED = 6
 NOT_INTERSECTED = 7
-
 SCANLINE = 8
 NOT_SCANLINE = 9
-
 LIMIT = 1e-8
+
 def equal(f1, f2):
     if abs(f1 - f2) < LIMIT:
         return True
@@ -108,9 +105,7 @@ class Point:
         s = '%.6f %.6f %.6f' % (self.x, self.y, self.z)
         return hash(s)
 
-
 class Line:
-    
     def __init__(self, p1=Point(), p2=Point()):
         self.p1 = p1
         self.p2 = p2
@@ -267,7 +262,6 @@ class Layer:
             r = random.random()
             g = random.random()
             b = random.random()
-            
             glColor(r, g, b)
  
             for line in chunk:
@@ -279,7 +273,6 @@ class Layer:
             for line in loop:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
-        
         
         glEnd()
         glEndList()
@@ -302,13 +295,11 @@ class Layer:
         self.loops = []
         while len(lines) != 0:
             loop = []
-            
             line = lines.pop()
             loop.append(line)
             
             start = line.p1
             p2 = line.p2
-            
             while True:
                 found = False
                 for aline in lines:
@@ -363,14 +354,11 @@ class Layer:
 
     def mergeLines(self, loop):
         nloop = []
-        
         while len(loop) != 0:
-            
             line = loop.pop(0) 
             k1 = line.slope()
             p1 = line.p1
             p2 = line.p2
-            
             rmList = []            
             for aline in loop:
                 k2 = aline.slope()
@@ -590,7 +578,6 @@ def writeline(line, f):
         print >> f, '<z>', p.z, '</z>',
         print >> f, '</point>'
     print >> f, '</line>'        
-
 
 class CadModel:
     def __init__(self):
@@ -914,7 +901,6 @@ class CadModel:
         return layer.createGLList()
 
 class PathCanvas(glcanvas.GLCanvas):
-
     def __init__(self, parent, cadModel):
         glcanvas.GLCanvas.__init__(self, parent, -1)
 
@@ -977,7 +963,6 @@ class PathCanvas(glcanvas.GLCanvas):
             glTranslatef(-self.cadModel.xcenter, -self.cadModel.ycenter, -z)
             layerId = self.cadModel.createGLLayerList()
             glCallList(layerId)
-
             
 class ModelCanvas(glcanvas.GLCanvas):
 
@@ -1124,9 +1109,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         glEnable(GL_COLOR_MATERIAL)
         glMaterial(GL_FRONT, GL_SHININESS, 50)#96)
 
-
 class DimensionPanel(wx.Panel):
-    
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
         self.txtFields = {}
@@ -1168,7 +1151,6 @@ class DimensionPanel(wx.Panel):
             self.txtFields[key].SetValue(dimension[key])
 
 class ControlPanel(wx.Panel):
-    
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
         self.createControls()
@@ -1234,9 +1216,7 @@ class ControlPanel(wx.Panel):
     def setCurrLayer(self, curr):
         self.txtFields["currlayer"].SetValue(str(curr))
 
-
 class BlackcatFrame(wx.Frame):
-
     def __init__(self):
         wx.Frame.__init__(self, None, -1, "Blackcat - STL CAD file slicer", size=(800, 600))
         self.sliceParameter = {"height":"1.0", "pitch":"1.0", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
@@ -1442,7 +1422,6 @@ class BlackcatFrame(wx.Frame):
         self.Close() 
 
 class CharValidator(wx.PyValidator):
-
     def __init__(self, data, key):
         wx.PyValidator.__init__(self)
         self.Bind(wx.EVT_CHAR, self.OnChar)
@@ -1502,7 +1481,6 @@ class CharValidator(wx.PyValidator):
         event.Skip()
 
 class SlicePanel(wx.Panel):
-
     def __init__(self, parent, data):
         wx.Panel.__init__(self, parent, -1)
         self.data = data
@@ -1542,9 +1520,7 @@ class SlicePanel(wx.Panel):
     def getDirection(self):
         return self.dirChoice.GetStringSelection()
 
-
 class ParaDialog(wx.Dialog):
-
     def __init__(self, parent, sliceParameter):
         self.sliceParameter = sliceParameter
         pre = wx.PreDialog()
@@ -1577,9 +1553,7 @@ class ParaDialog(wx.Dialog):
     def getValues(self):
         self.sliceParameter["direction"] = self.panel.getDirection()
 
-
 class BlackcatApp(wx.App):
-    
     def __init__(self, redirect=False, filename=None):
         wx.App.__init__(self, redirect, filename)
 
