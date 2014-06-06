@@ -33,6 +33,7 @@ import math
 import random
 import thread
 import Queue
+import cat
 
 try:
     import psyco
@@ -1173,7 +1174,8 @@ class ControlPanel(wx.Panel):
 
         # image
         sizer.AddStretchSpacer()
-        img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
+        #img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
+        img = cat.getcatImage()
         w = img.GetWidth()
         h = img.GetHeight()
         factor = 0.6
