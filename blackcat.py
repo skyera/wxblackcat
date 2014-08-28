@@ -915,11 +915,14 @@ class PathCanvas(glcanvas.GLCanvas):
         pass
 
     def OnSize(self, event):
+        wx.CallAfter(self.setup_viewport)
+        #self.Refresh()
+        event.Skip()
+    
+    def setup_viewport(self):
         self.SetCurrent(self.context)
         size = self.GetClientSize()
         glViewport(0, 0, size.width, size.height)
-        self.Refresh()
-        event.Skip()
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
@@ -1048,12 +1051,12 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.Refresh()
 
     def OnSize(self, event):
-        self.SetCurrent(self.context)
-        self.setup_viewport()
-        self.Refresh()
+        wx.CallAfter(self.setup_viewport)
+        #self.Refresh()
         event.Skip()
     
     def setup_viewport(self):
+        self.SetCurrent(self.context)
         size = self.GetClientSize()
         glViewport(0, 0, size.width, size.height)
 
