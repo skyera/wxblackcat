@@ -904,6 +904,7 @@ class CadModel:
 class PathCanvas(glcanvas.GLCanvas):
     def __init__(self, parent, cadmodel):
         glcanvas.GLCanvas.__init__(self, parent, -1)
+        self.context = glcanvas.GLContext(self)
 
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_SIZE, self.OnSize)
@@ -914,16 +915,15 @@ class PathCanvas(glcanvas.GLCanvas):
         pass
 
     def OnSize(self, event):
-        if self.GetContext():
-            self.SetCurrent()
-            size = self.GetClientSize()
-            glViewport(0, 0, size.width, size.height)
+        self.SetCurrent(self.context)
+        size = self.GetClientSize()
+        glViewport(0, 0, size.width, size.height)
         self.Refresh()
         event.Skip()
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
-        self.SetCurrent()
+        self.SetCurrent(self.context)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.show_path()
         self.SwapBuffers()
@@ -975,6 +975,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.lasty = self.y = 30
         self.xangle = 0
         self.yangle = 0
+        self.context = glcanvas.GLContext(self)
 
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_SIZE, self.OnSize)
@@ -988,7 +989,7 @@ class ModelCanvas(glcanvas.GLCanvas):
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
-        self.SetCurrent()
+        self.SetCurrent(self.context)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.show_model()
         self.show_path()
@@ -1038,7 +1039,7 @@ class ModelCanvas(glcanvas.GLCanvas):
     def create_model(self):
         self.xangle = 0
         self.yangle = 0
-        self.SetCurrent()
+        self.SetCurrent(self.context)
         
         if not self.init:
             self.setup_gl_context()
@@ -1047,9 +1048,8 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.Refresh()
 
     def OnSize(self, event):
-        if self.GetContext():
-            self.SetCurrent()
-            self.setup_viewport()
+        self.SetCurrent(self.context)
+        self.setup_viewport()
         self.Refresh()
         event.Skip()
     
@@ -1498,7 +1498,7 @@ class SlicePanel(wx.Panel):
         outsizer = wx.BoxSizer(wx.VERTICAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
         outsizer.Add(sizer, 0, wx.ALL, 10)
-        box = wx.FlexGridSizer(rows=3, cols=2, hgap=5, vgap=5)
+        box = wx.FlexGridSizer(rows=6, cols=2, hgap=5, vgap=5)
         for label, dvalue, key in labels:
             lbl = wx.StaticText(self, label=label)
             box.Add(lbl, 0, 0)
