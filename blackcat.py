@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # Author     : Zhigang Liu
 # Date       : Jan 2009
 # Email      : zgliu2@gmail.com
 # License    : General Public License 2 (GPL2)
 # Description: Slice STL CAD file layer by layer
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,20 +21,21 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
-import wx
-import os
-import sys
-import string
 import copy
-import time
 import logging
-import pprint
 import math
-import random
-import threading
+import os
+import pprint
 import queue
-import cat
+import random
+import string
+import sys
+import threading
+import time
 
+import wx
+
+import cat
 
 try:
     from wx import glcanvas
@@ -59,22 +60,26 @@ SCANLINE = 8
 NOT_SCANLINE = 9
 LIMIT = 1e-8
 
+
 def equal(f1, f2):
     if abs(f1 - f2) < LIMIT:
         return True
     else:
         return False
 
+
 class EndFileException(Exception):
     def __init__(self, args=None):
         self.args = args
+
 
 class FormatError(Exception):
     def __init__(self, value=None):
         self.value = value
 
     def __str__(self):
-        return 'FormatError:' + self.value
+        return "FormatError:" + self.value
+
 
 class Point:
     def __init__(self, x=0.0, y=0.0, z=0.0):
@@ -83,11 +88,13 @@ class Point:
         self.z = z
 
     def __str__(self):
-        s = '(%f, %f, %f) ' % (self.x, self.y, self.z)
+        s = "(%f, %f, %f) " % (self.x, self.y, self.z)
         return s
 
     def __eq__(self, other):
-        return equal(self.x, other.x) and equal(self.y, other.y) and equal(self.z, other.z)
+        return (
+            equal(self.x, other.x) and equal(self.y, other.y) and equal(self.z, other.z)
+        )
 
     def __cmp__(self, other):
         if self == other:
@@ -98,8 +105,9 @@ class Point:
             return 1
 
     def __hash__(self):
-        s = '%.6f %.6f %.6f' % (self.x, self.y, self.z)
+        s = "%.6f %.6f %.6f" % (self.x, self.y, self.z)
         return hash(s)
+
 
 class Line:
     def __init__(self, p1=Point(), p2=Point()):
@@ -121,21 +129,24 @@ class Line:
         diffx = self.p2.x - self.p1.x
 
         if equal(diffx, 0.0):
-            return sys.maxint
+            return math.inf
         else:
             k = diffy / diffx
             return k
 
+
 def intersect(x1, y1, x2, y2, x):
-    ''' compute y'''
+    """compute y"""
     y = (y2 - y1) / (x2 - x1) * (x - x1) + y1
     return y
+
 
 def is_intersected(p1, p2, z):
     if (p1.z - z) * (p2.z - z) <= 0.0:
         return True
     else:
         return False
+
 
 def calc_intersected_point(p1, p2, z):
     x1 = p1.x
@@ -151,14 +162,15 @@ def calc_intersected_point(p1, p2, z):
     p = Point(x, y, z)
     return p
 
+
 class Facet:
     def __init__(self):
         self.normal = Point()
         self.points = (Point(), Point(), Point())
 
     def __str__(self):
-        s = 'normal: ' + str(self.normal)
-        s += ' points:'
+        s = "normal: " + str(self.normal)
+        s += " points:"
         for p in self.points:
             s += str(p)
         return s
@@ -176,10 +188,10 @@ class Facet:
         elif direction == "-Y":
             for p in self.points:
                 p.y, p.z = p.z, -p.y
-        elif direction == '-Z':
+        elif direction == "-Z":
             for p in self.points:
                 p.z = -p.z
-        elif direction == '+Z':
+        elif direction == "+Z":
             pass
         else:
             assert 0
@@ -238,8 +250,17 @@ class Facet:
         p = calc_intersected_point(p2, p3, z)
         return Line(p1, p)
 
+
 class Layer:
-    colors = ([1, 0, 1], [0, 1, 1], [1, 1, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 1, 1])
+    colors = (
+        [1, 0, 1],
+        [0, 1, 1],
+        [1, 1, 0],
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [0, 1, 1],
+    )
 
     def __init__(self, z, pitch):
         self.lines = []
@@ -316,7 +337,7 @@ class Layer:
                     if p2 == start:
                         break
                 else:
-                    print('error: loop is not found')
+                    print("error: loop is not found")
                     return False
 
             self.move_lines(loop)
@@ -391,12 +412,12 @@ class Layer:
                 self.scanlines.append(scanline)
                 lasty = y
                 y += self.pitch
-            elif code  == REDO:
+            elif code == REDO:
                 y = y - self.pitch * 0.01
                 if y < lasty:
                     break
 
-                print('recreate scan line')
+                print("recreate scan line")
             else:
                 lasty = y
                 y += self.pitch
@@ -409,15 +430,16 @@ class Layer:
                 if code == REDO:
                     return (REDO, None)
                 elif code == INTERSECTED:
-                    s.add('%.6f' % x)
+                    s.add("%.6f" % x)
 
-        xlist = map(lambda x: float(x), s)
+        # xlist = map(lambda x: float(x), s)
+        xlist = [float(x) for x in s]
         xlist.sort()
 
         n = len(xlist)
-        ok = (n % 2 == 0)
+        ok = n % 2 == 0
         if not ok:
-            print('error: no of points in a scanline is not even', n)
+            print("error: no of points in a scanline is not even", n)
             assert 0
 
         # Create lines
@@ -478,8 +500,8 @@ class Layer:
             x = x1
             return x
         else:
-           x = (y -  y1) * (x2 - x1) / (y2 - y1) + x1
-           return x
+            x = (y - y1) * (x2 - x1) / (y2 - y1) + x1
+            return x
 
     def is_peak(self, y, point, line, loop):
         L = []
@@ -535,7 +557,8 @@ class Layer:
                     break
 
             self.chunks.append(chunk)
-            scanlines = filter(lambda x: len(x) > 0, scanlines)
+            scanlines = [x for x in scanlines if len(x) > 0]
+            # scanlines = filter(lambda x: len(x) > 0, scanlines)
 
     def write(self, f):
         pass
@@ -568,6 +591,7 @@ class Layer:
         #     count += 1
         # print >> f, '</chunks>'
 
+
 def writeline(line, f):
     pass
     # print >> f, '<line>'
@@ -578,6 +602,7 @@ def writeline(line, f):
     #     print >> f, '<z>', p.z, '</z>',
     #     print >> f, '</point>'
     # print >> f, '</line>'
+
 
 class CadModel:
     def __init__(self):
@@ -595,13 +620,13 @@ class CadModel:
         n = len(self.layers)
         self.curr_layer -= 1
         if self.curr_layer == -1:
-            self.curr_layer = len(self.layers) -1
+            self.curr_layer = len(self.layers) - 1
 
     def get_curr_layer(self):
         return self.layers[self.curr_layer]
 
     def init_logger(self):
-        #self.logger = logging.getLogger(self.__class__.__name__)
+        # self.logger = logging.getLogger(self.__class__.__name__)
         self.logger = logging.getLogger("cadmodel")
         self.logger.setLevel(logging.DEBUG)
         h = logging.StreamHandler()
@@ -613,7 +638,7 @@ class CadModel:
     def get_line(self, f):
         line = f.readline()
         if not line:
-            raise EndFileException('end of file')
+            raise EndFileException("end of file")
         return line.strip()
 
     def get_normal(self, f):
@@ -621,14 +646,14 @@ class CadModel:
         items = line.split()
         num_items = len(items)
         if num_items != 5:
-            if num_items >=1 and items[0] == "endsolid":
+            if num_items >= 1 and items[0] == "endsolid":
                 self.loaded = True
-                raise EndFileException('endfile')
+                raise EndFileException("endfile")
             else:
                 self.logger.error(line)
                 raise FormatError(line)
 
-        if items[0] != 'facet' and items[1] != 'normal':
+        if items[0] != "facet" and items[1] != "normal":
             self.logger.error(line)
             raise FormatError(line)
 
@@ -652,11 +677,11 @@ class CadModel:
             if no != 4:
                 self.logger.error(line)
                 raise FormatError(line)
-            if items[0] != 'vertex':
+            if items[0] != "vertex":
                 self.logger.error(line)
                 raise FormatError(line)
 
-            #L = map(lambda x: float(x), items[1:])
+            # L = map(lambda x: float(x), items[1:])
             L = [float(x) for x in items[1:]]
             point = Point(L[0], L[1], L[2])
             points.append(point)
@@ -664,13 +689,13 @@ class CadModel:
 
     def get_end_loop(self, f):
         line = self.get_line(f)
-        if line != 'endloop':
+        if line != "endloop":
             self.logger.error(line)
             raise FormatError(line)
 
     def get_end_facet(self, f):
         line = self.get_line(f)
-        if line != 'endfacet':
+        if line != "endfacet":
             self.logger.error(line)
             raise FormatError(line)
 
@@ -686,11 +711,11 @@ class CadModel:
         return facet
 
     def get_solid_line(self, f):
-        ''' Read the first line'''
+        """Read the first line"""
         line = self.get_line(f)
         items = line.split()
         no = len(items)
-        if no >= 2 and items[0] == 'solid':
+        if no >= 2 and items[0] == "solid":
             self.modelName = items[1]
         else:
             self.logger.error(line)
@@ -717,7 +742,11 @@ class CadModel:
             self.ysize = self.maxy - self.miny
             self.zsize = self.maxz - self.minz
 
-            self.diameter = math.sqrt(self.xsize * self.xsize + self.ysize * self.ysize + self.zsize * self.zsize)
+            self.diameter = math.sqrt(
+                self.xsize * self.xsize
+                + self.ysize * self.ysize
+                + self.zsize * self.zsize
+            )
 
             # Center
             self.xcenter = (self.minx + self.maxx) / 2
@@ -750,15 +779,15 @@ class CadModel:
             self.oldfacets = copy.deepcopy(self.facets)
             self.sliced = False
             self.set_old_dimension()
-            cpu = '%.1f' % (time.time() - start)
+            cpu = "%.1f" % (time.time() - start)
 
-            print('open cpu', cpu, 'secs')
+            print("open cpu", cpu, "secs")
             return True
         else:
             return False
 
     def save(self, filename):
-        f = open(filename, 'w')
+        f = open(filename, "w")
         # print >> f, '<slice>'
         # print >> f, '    <dimension>'
         # print >> f, '        <x>', self.xsize, '</x>'
@@ -861,7 +890,7 @@ class CadModel:
 
         self.queue.put("done")
         # print 'no of layers:', len(self.layers)
-        cpu = '%.1f' % (time.time() - start)
+        cpu = "%.1f" % (time.time() - start)
         # print 'slice cpu', cpu,'secs'
 
     def create_one_layer(self, z):
@@ -902,6 +931,7 @@ class CadModel:
         layer = self.get_curr_layer()
         return layer.create_gllist()
 
+
 class PathCanvas(glcanvas.GLCanvas):
     def __init__(self, parent, cadmodel):
         glcanvas.GLCanvas.__init__(self, parent, -1)
@@ -917,7 +947,7 @@ class PathCanvas(glcanvas.GLCanvas):
 
     def OnSize(self, event):
         wx.CallAfter(self.setup_viewport)
-        #self.Refresh()
+        # self.Refresh()
         event.Skip()
 
     def setup_viewport(self):
@@ -950,7 +980,7 @@ class PathCanvas(glcanvas.GLCanvas):
             top = half * factor
         else:
             factor = float(w) / h
-            left  = -half * factor
+            left = -half * factor
             right = half * factor
             bottom = -half
             top = half
@@ -968,6 +998,7 @@ class PathCanvas(glcanvas.GLCanvas):
             glTranslatef(-self.cadmodel.xcenter, -self.cadmodel.ycenter, -z)
             layer_id = self.cadmodel.create_gl_layer_list()
             glCallList(layer_id)
+
 
 class ModelCanvas(glcanvas.GLCanvas):
 
@@ -989,7 +1020,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.Bind(wx.EVT_MOTION, self.OnMouseMotion)
 
     def OnEraseBackground(self, event):
-        pass # Do nothing, to avoid flashing on MSW.
+        pass  # Do nothing, to avoid flashing on MSW.
 
     def OnPaint(self, event):
         dc = wx.PaintDC(self)
@@ -1008,7 +1039,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         if not self.cadmodel.loaded:
             return
 
-        #self.setup_gl_context()
+        # self.setup_gl_context()
         self.setup_projection()
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
@@ -1019,7 +1050,9 @@ class ModelCanvas(glcanvas.GLCanvas):
         glRotatef(self.yangle, 0, 1, 0)
 
         # Move model to origin
-        glTranslatef(-self.cadmodel.xcenter, -self.cadmodel.ycenter, -self.cadmodel.zcenter)
+        glTranslatef(
+            -self.cadmodel.xcenter, -self.cadmodel.ycenter, -self.cadmodel.zcenter
+        )
 
         glCallList(self.cadmodel.model_list_id)
 
@@ -1036,8 +1069,8 @@ class ModelCanvas(glcanvas.GLCanvas):
             self.lastx, self.lasty = self.x, self.y
             self.x, self.y = evt.GetPosition()
 
-            self.xangle += (self.y - self.lasty)
-            self.yangle += (self.x - self.lastx)
+            self.xangle += self.y - self.lasty
+            self.yangle += self.x - self.lastx
             self.Refresh(False)
 
     def create_model(self):
@@ -1047,13 +1080,13 @@ class ModelCanvas(glcanvas.GLCanvas):
 
         if not self.init:
             self.setup_gl_context()
-            self.init =  True
+            self.init = True
         self.cadmodel.create_gl_model_list()
         self.Refresh()
 
     def OnSize(self, event):
         wx.CallAfter(self.setup_viewport)
-        #self.Refresh()
+        # self.Refresh()
         event.Skip()
 
     def setup_viewport(self):
@@ -1079,7 +1112,7 @@ class ModelCanvas(glcanvas.GLCanvas):
             top = half * factor
         else:
             factor = float(w) / h
-            left  = -half * factor
+            left = -half * factor
             right = half * factor
             bottom = -half
             top = half
@@ -1105,15 +1138,16 @@ class ModelCanvas(glcanvas.GLCanvas):
         glLightfv(GL_LIGHT0, GL_POSITION, position)
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
 
-        mcolor = [ 0.0, 0.0, 0.4, 1.0]
+        mcolor = [0.0, 0.0, 0.4, 1.0]
         glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, mcolor)
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_CULL_FACE)
         glPolygonMode(GL_BACK, GL_LINE)
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
         glEnable(GL_COLOR_MATERIAL)
-        #args = (50,)
-        #glMaterial(GL_FRONT, GL_SHININESS, *args)#96)
+        # args = (50,)
+        # glMaterial(GL_FRONT, GL_SHININESS, *args)#96)
+
 
 class DimensionPanel(wx.Panel):
     def __init__(self, parent):
@@ -1129,12 +1163,12 @@ class DimensionPanel(wx.Panel):
         label = "Original"
         items = [("X", "oldx"), ("Y", "oldy"), ("Z", "oldz")]
         s1 = self.create_dimension(label, items)
-        sizer.Add(s1, 1, wx.EXPAND|wx.ALL, 2)
+        sizer.Add(s1, 1, wx.EXPAND | wx.ALL, 2)
 
         label = "Scaled"
-        items = [("X", 'newx'), ('Y', 'newy'), ('Z', 'newz')]
+        items = [("X", "newx"), ("Y", "newy"), ("Z", "newz")]
         s2 = self.create_dimension(label, items)
-        sizer.Add(s2, 1, wx.EXPAND|wx.ALL, 2)
+        sizer.Add(s2, 1, wx.EXPAND | wx.ALL, 2)
 
     def create_dimension(self, label, items):
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -1156,6 +1190,7 @@ class DimensionPanel(wx.Panel):
         for key in dimension:
             self.txt_fields[key].SetValue(dimension[key])
 
+
 class ControlPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent, -1)
@@ -1165,21 +1200,21 @@ class ControlPanel(wx.Panel):
         mainsizer = wx.BoxSizer(wx.VERTICAL)
 
         sizer = wx.BoxSizer(wx.VERTICAL)
-        mainsizer.Add(sizer, 1, wx.ALL|wx.EXPAND, 10)
+        mainsizer.Add(sizer, 1, wx.ALL | wx.EXPAND, 10)
         self.SetSizer(mainsizer)
 
         # Dimension panel
         self.dimensionPanel = DimensionPanel(self)
-        sizer.Add(self.dimensionPanel, 0) #, wx.EXPAND|wx.ALIGN_CENTER)
+        sizer.Add(self.dimensionPanel, 0)  # , wx.EXPAND|wx.ALIGN_CENTER)
 
         # Slice info panel
-        sizer.Add((10,10))
+        sizer.Add((10, 10))
         sliceSizer = self.create_slice_info()
         sizer.Add(sliceSizer, 0, wx.EXPAND)
 
         # image
         sizer.AddStretchSpacer()
-        #img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
+        # img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
         img = cat.getcatImage()
         w = img.GetWidth()
         h = img.GetHeight()
@@ -1195,9 +1230,14 @@ class ControlPanel(wx.Panel):
         box = wx.StaticBox(self, -1, "Slice Info")
         sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
 
-        items = [("Layer hight", "height"), ("Pitch", "pitch"), ("Speed", "speed"),
-                 ("Direction", "direction"), ("Num Layers", "nolayer"),
-                 ("Current Layer", "currlayer")]
+        items = [
+            ("Layer hight", "height"),
+            ("Pitch", "pitch"),
+            ("Speed", "speed"),
+            ("Direction", "direction"),
+            ("Num Layers", "nolayer"),
+            ("Current Layer", "currlayer"),
+        ]
         flex = wx.FlexGridSizer(rows=len(items), cols=2, hgap=2, vgap=2)
         for label, key in items:
             lbl_ctrl = wx.StaticText(self, label=label)
@@ -1206,7 +1246,7 @@ class ControlPanel(wx.Panel):
             flex.Add(txt_ctrl, 0, wx.EXPAND)
             self.txt_fields[key] = txt_ctrl
         flex.AddGrowableCol(1, 1)
-        sizer.Add(flex, 1, wx.EXPAND|wx.ALL, 2)
+        sizer.Add(flex, 1, wx.EXPAND | wx.ALL, 2)
         return sizer
 
     def set_dimension(self, dimension):
@@ -1224,10 +1264,20 @@ class ControlPanel(wx.Panel):
     def set_curr_layer(self, curr_layer):
         self.txt_fields["currlayer"].SetValue(str(curr_layer))
 
+
 class BlackcatFrame(wx.Frame):
     def __init__(self):
-        wx.Frame.__init__(self, None, -1, "Blackcat - STL CAD file slicer", size=(800, 600))
-        self.slice_parameter = {"height":"1.0", "pitch":"1.0", "speed":"10", "fast":"20", "direction":"+Z", "scale":"1"}
+        wx.Frame.__init__(
+            self, None, -1, "Blackcat - STL CAD file slicer", size=(800, 600)
+        )
+        self.slice_parameter = {
+            "height": "1.0",
+            "pitch": "1.0",
+            "speed": "10",
+            "fast": "20",
+            "direction": "+Z",
+            "scale": "1",
+        }
         self.create_menubar()
         self.create_toolbar()
         self.cadmodel = CadModel()
@@ -1249,13 +1299,25 @@ class BlackcatFrame(wx.Frame):
         img_help = wx.ArtProvider.GetBitmap(wx.ART_HELP, client=wx.ART_TOOLBAR)
         img_quit = wx.ArtProvider.GetBitmap(wx.ART_QUIT)
 
-        toolbar.AddLabelTool(wx.ID_OPEN, 'open', img_open, shortHelp='open file', longHelp='open CAD model')
-        toolbar.AddLabelTool(self.ID_SLICE, 'slice', img_slice, shortHelp='slice modal')
-        toolbar.AddLabelTool(wx.ID_SAVE, 'save', img_save, shortHelp='save slice info', longHelp='save slice result')
-        toolbar.AddLabelTool(self.ID_NEXT, 'next', img_next, shortHelp='next layer')
-        toolbar.AddLabelTool(self.ID_PREV, 'prev', img_prev, shortHelp='previous layer')
-        toolbar.AddLabelTool(wx.ID_ABOUT, 'about', img_help, shortHelp='about')
-        toolbar.AddLabelTool(wx.ID_EXIT, 'quit', img_quit, shortHelp='quit')
+        toolbar.AddLabelTool(
+            wx.ID_OPEN,
+            "open",
+            img_open,
+            shortHelp="open file",
+            longHelp="open CAD model",
+        )
+        toolbar.AddLabelTool(self.ID_SLICE, "slice", img_slice, shortHelp="slice modal")
+        toolbar.AddLabelTool(
+            wx.ID_SAVE,
+            "save",
+            img_save,
+            shortHelp="save slice info",
+            longHelp="save slice result",
+        )
+        toolbar.AddLabelTool(self.ID_NEXT, "next", img_next, shortHelp="next layer")
+        toolbar.AddLabelTool(self.ID_PREV, "prev", img_prev, shortHelp="previous layer")
+        toolbar.AddLabelTool(wx.ID_ABOUT, "about", img_help, shortHelp="about")
+        toolbar.AddLabelTool(wx.ID_EXIT, "quit", img_quit, shortHelp="quit")
         toolbar.Realize()
 
         self.Bind(wx.EVT_TOOL, self.OnOpen, id=wx.ID_OPEN)
@@ -1282,12 +1344,12 @@ class BlackcatFrame(wx.Frame):
         self.Refresh()
 
     def create_panel(self):
-        self.left_panel  = ControlPanel(self)
+        self.left_panel = ControlPanel(self)
 
         self.sp = wx.SplitterWindow(self)
         self.model_panel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.path_panel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
-        self.path_panel.SetBackgroundColour('sky blue')
+        self.path_panel.SetBackgroundColour("sky blue")
         self.sp.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGED, self.OnPosChanging)
 
         # Model canvas
@@ -1323,27 +1385,46 @@ class BlackcatFrame(wx.Frame):
         self.SetMenuBar(menubar)
 
     def menu_data(self):
-        return (("&File", ("&Open\tCtrl+o", "Open CAD file", self.OnOpen, wx.ID_OPEN),
-                          ("S&lice\tCtrl+l", "Slice CAD model", self.OnSlice, -1),
-                          ("&Save\tCtrl+s", "Save slice result as xml file", self.OnSave, wx.ID_SAVE),
-                          ("", "", "", ""),
-                         ("&Quit\tCtrl+q", "Quit", self.OnQuit, wx.ID_EXIT)),
-                ("Edit", ("Next Layer\tpgdn", "next layer", self.OnNextLayer, -1),
-                         ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer, -1)),
-                ("&Help", ("&About", "About this program", self.OnAbout, wx.ID_ABOUT))
-                 )
+        return (
+            (
+                "&File",
+                ("&Open\tCtrl+o", "Open CAD file", self.OnOpen, wx.ID_OPEN),
+                ("S&lice\tCtrl+l", "Slice CAD model", self.OnSlice, -1),
+                (
+                    "&Save\tCtrl+s",
+                    "Save slice result as xml file",
+                    self.OnSave,
+                    wx.ID_SAVE,
+                ),
+                ("", "", "", ""),
+                ("&Quit\tCtrl+q", "Quit", self.OnQuit, wx.ID_EXIT),
+            ),
+            (
+                "Edit",
+                ("Next Layer\tpgdn", "next layer", self.OnNextLayer, -1),
+                ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer, -1),
+            ),
+            ("&Help", ("&About", "About this program", self.OnAbout, wx.ID_ABOUT)),
+        )
 
     def OnSave(self, event):
         if not self.cadmodel.sliced:
             return
 
         wildcard = "xml file (*.xml)|*.xml|All files (*.*)|*.*"
-        dlg = wx.FileDialog(None, "Save slice data as xml file", os.getcwd(), self.cadname, wildcard, wx.SAVE)
+        dlg = wx.FileDialog(
+            None,
+            "Save slice data as xml file",
+            os.getcwd(),
+            self.cadname,
+            wildcard,
+            wx.SAVE,
+        )
         if dlg.ShowModal() == wx.ID_OK:
             filename = dlg.GetPath()
             root, ext = os.path.splitext(filename)
-            if ext.lower() != '.xml':
-                filename = filename + '.xml'
+            if ext.lower() != ".xml":
+                filename = filename + ".xml"
             self.cadmodel.save(filename)
             # print 'slicing info is saved in', filename
 
@@ -1369,7 +1450,9 @@ class BlackcatFrame(wx.Frame):
 
     def OnOpen(self, event):
         wildcard = "CAD std files (*.stl)|*.stl|All files (*.*)|*.*"
-        dlg = wx.FileDialog(None, "Open CAD stl file", os.getcwd(), "", wildcard, wx.FD_OPEN)
+        dlg = wx.FileDialog(
+            None, "Open CAD stl file", os.getcwd(), "", wildcard, wx.FD_OPEN
+        )
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
             self.statusbar.SetStatusText(path)
@@ -1383,7 +1466,7 @@ class BlackcatFrame(wx.Frame):
                 root, ext = os.path.splitext(basename)
                 self.cadname = root
             else:
-                wx.MessageBox("Cannot open " + path, 'Error')
+                wx.MessageBox("Cannot open " + path, "Error")
         dlg.Destroy()
 
     def OnSlice(self, event):
@@ -1396,19 +1479,27 @@ class BlackcatFrame(wx.Frame):
         if result == wx.ID_OK:
             dlg.get_values()
             # print 'slicing...'
-            self.cadmodel.queue = Queue.Queue()
-            thread.start_new_thread(self.cadmodel.slice, (self.slice_parameter,))
+            self.cadmodel.queue = queue.Queue()
+            # threading.start_new_thread(self.cadmodel.slice, (self.slice_parameter,))
+            thread = threading.Thread(
+                target=self.cadmodel.slice, args=(self.slice_parameter,)
+            )
+            thread.start()
             num_layers = self.cadmodel.queue.get()
             if num_layers > 0:
-                pdlg = wx.ProgressDialog("Slicing in progress", "Progress",
-                                         num_layers,
-                                         style=wx.PD_ELAPSED_TIME|
-                                               wx.PD_REMAINING_TIME|
-                                               wx.PD_AUTO_HIDE|wx.PD_APP_MODAL)
+                pdlg = wx.ProgressDialog(
+                    "Slicing in progress",
+                    "Progress",
+                    num_layers,
+                    style=wx.PD_ELAPSED_TIME
+                    | wx.PD_REMAINING_TIME
+                    | wx.PD_AUTO_HIDE
+                    | wx.PD_APP_MODAL,
+                )
 
                 while True:
                     count = self.cadmodel.queue.get()
-                    if count == 'done':
+                    if count == "done":
                         count = num_layers
                         pdlg.Update(count)
                         break
@@ -1432,6 +1523,7 @@ class BlackcatFrame(wx.Frame):
     def OnQuit(self, event):
         self.Close()
 
+
 class CharValidator(wx.PyValidator):
     def __init__(self, data, key):
         wx.PyValidator.__init__(self)
@@ -1447,7 +1539,7 @@ class CharValidator(wx.PyValidator):
         text = text_ctrl.GetValue()
         if len(text) == 0:
             wx.MessageBox("This field must contain some text!", "Error")
-            text_ctrl.SetBackgroundColour('pink')
+            text_ctrl.SetBackgroundColour("pink")
             text_ctrl.SetFocus()
             text_ctrl.Refresh()
             return False
@@ -1456,19 +1548,19 @@ class CharValidator(wx.PyValidator):
                 value = float(text)
             except ValueError:
                 wx.MessageBox("must be a number", "Error")
-                text_ctrl.SetBackgroundColour('pink')
+                text_ctrl.SetBackgroundColour("pink")
                 text_ctrl.SetFocus()
                 text_ctrl.Refresh()
                 return False
 
             if value <= 0:
                 wx.MessageBox("value <= 0!", "Error")
-                text_ctrl.SetBackgroundColour('pink')
+                text_ctrl.SetBackgroundColour("pink")
                 text_ctrl.SetFocus()
                 text_ctrl.Refresh()
                 return False
 
-        text_ctrl.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
+        # text_ctrl.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
         text_ctrl.Refresh()
         return True
 
@@ -1491,6 +1583,7 @@ class CharValidator(wx.PyValidator):
                 return
         event.Skip()
 
+
 class SlicePanel(wx.Panel):
     def __init__(self, parent, data):
         wx.Panel.__init__(self, parent, -1)
@@ -1498,8 +1591,12 @@ class SlicePanel(wx.Panel):
         self.create_controls()
 
     def create_controls(self):
-        labels = [("Layer height", "1.0", "height"), ("Pitch", "1.0", "pitch"), \
-                  ("Scanning speed", "20", "speed"), ("Fast speed", "20", "fast")]
+        labels = [
+            ("Layer height", "1.0", "height"),
+            ("Pitch", "1.0", "pitch"),
+            ("Scanning speed", "20", "speed"),
+            ("Fast speed", "20", "fast"),
+        ]
 
         outsizer = wx.BoxSizer(wx.VERTICAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -1508,7 +1605,9 @@ class SlicePanel(wx.Panel):
         for label, dvalue, key in labels:
             lbl = wx.StaticText(self, label=label)
             box.Add(lbl, 0, 0)
-            txt = wx.TextCtrl(self, -1, dvalue, size=(80, -1), validator=CharValidator(self.data, key))
+            txt = wx.TextCtrl(
+                self, -1, dvalue, size=(80, -1), validator=CharValidator(self.data, key)
+            )
             box.Add(txt, 0, 0)
         sizer.Add(box, 0, 0)
 
@@ -1518,33 +1617,35 @@ class SlicePanel(wx.Panel):
 
         self.dir_list = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
         self.dir_choice = wx.Choice(self, -1, (160, -1), choices=self.dir_list)
-        self.dir_choice.SetStringSelection(self.data['direction'])
+        self.dir_choice.SetStringSelection(self.data["direction"])
         box.Add(self.dir_choice, 0, wx.EXPAND)
 
         # scale
         lbl = wx.StaticText(self, label="Scale factor")
         box.Add(lbl, 0, 0)
-        scale_txt = wx.TextCtrl(self, -1, "1", size=(80, -1), validator=CharValidator(self.data, "scale"))
+        scale_txt = wx.TextCtrl(
+            self, -1, "1", size=(80, -1), validator=CharValidator(self.data, "scale")
+        )
         box.Add(scale_txt, 0, wx.EXPAND)
         self.SetSizer(outsizer)
 
     def get_direction(self):
         return self.dir_choice.GetStringSelection()
 
+
 class ParaDialog(wx.Dialog):
     def __init__(self, parent, slice_parameter):
         self.slice_parameter = slice_parameter
-        pre = wx.PreDialog()
-        pre.SetExtraStyle(wx.WS_EX_VALIDATE_RECURSIVELY)
-        pre.Create(parent, -1, "Slice parameters")
-        self.PostCreate(pre)
+        wx.Dialog.__init__(self)
+        self.SetExtraStyle(wx.WS_EX_VALIDATE_RECURSIVELY)
+        self.Create(parent, -1, "Slice parameters")
         self.create_controls()
 
     def create_controls(self):
         sizer = wx.BoxSizer(wx.VERTICAL)
         self.panel = SlicePanel(self, self.slice_parameter)
         sizer.Add(self.panel, 0, 0)
-        sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
+        sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.TOP | wx.BOTTOM, 5)
 
         #
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -1553,16 +1654,17 @@ class ParaDialog(wx.Dialog):
         ok_btn.SetDefault()
         cancel_btn = wx.Button(self, wx.ID_CANCEL, "Cancel")
         btn_sizer.Add(ok_btn)
-        btn_sizer.Add((10,10), 1)
+        btn_sizer.Add((10, 10), 1)
         btn_sizer.Add(cancel_btn)
-        btn_sizer.Add((10,10), 1)
-        sizer.Add(btn_sizer, 0, wx.EXPAND|wx.ALL, 10)
+        btn_sizer.Add((10, 10), 1)
+        sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 10)
 
         self.SetSizer(sizer)
         self.Fit()
 
     def get_values(self):
         self.slice_parameter["direction"] = self.panel.get_direction()
+
 
 class BlackcatApp(wx.App):
     def __init__(self, redirect=False, filename=None):
@@ -1573,6 +1675,7 @@ class BlackcatApp(wx.App):
         self.frame.Show()
         return True
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = BlackcatApp()
     app.MainLoop()
