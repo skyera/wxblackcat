@@ -1222,7 +1222,7 @@ class ControlPanel(wx.Panel):
         factor = 1
         img = img.Scale(w * factor, h * factor)
         img = img.ConvertToGreyscale()
-        sb = wx.StaticBitmap(self, -1, wx.BitmapFromImage(img), style=wx.RAISED_BORDER)
+        sb = wx.StaticBitmap(self, -1, wx.Bitmap(img), style=wx.RAISED_BORDER)
         sizer.Add(sb, 0, wx.ALIGN_CENTER_HORIZONTAL)
 
     def create_slice_info(self):
@@ -1299,25 +1299,32 @@ class BlackcatFrame(wx.Frame):
         img_help = wx.ArtProvider.GetBitmap(wx.ART_HELP, client=wx.ART_TOOLBAR)
         img_quit = wx.ArtProvider.GetBitmap(wx.ART_QUIT)
 
-        toolbar.AddLabelTool(
+        toolbar.AddTool(
             wx.ID_OPEN,
-            "open",
-            img_open,
+            label="open",
+            bitmap=img_open,
             shortHelp="open file",
-            longHelp="open CAD model",
         )
-        toolbar.AddLabelTool(self.ID_SLICE, "slice", img_slice, shortHelp="slice modal")
-        toolbar.AddLabelTool(
+        toolbar.AddTool(
+            self.ID_SLICE,
+            label="slice",
+            bitmap=img_slice,
+            shortHelp="slice modal",
+        )
+        toolbar.AddTool(
             wx.ID_SAVE,
-            "save",
-            img_save,
+            label="save",
+            bitmap=img_save,
             shortHelp="save slice info",
-            longHelp="save slice result",
         )
-        toolbar.AddLabelTool(self.ID_NEXT, "next", img_next, shortHelp="next layer")
-        toolbar.AddLabelTool(self.ID_PREV, "prev", img_prev, shortHelp="previous layer")
-        toolbar.AddLabelTool(wx.ID_ABOUT, "about", img_help, shortHelp="about")
-        toolbar.AddLabelTool(wx.ID_EXIT, "quit", img_quit, shortHelp="quit")
+        toolbar.AddTool(
+            self.ID_NEXT, label="next", bitmap=img_next, shortHelp="next layer"
+        )
+        toolbar.AddTool(
+            self.ID_PREV, label="prev", bitmap=img_prev, shortHelp="previous layer"
+        )
+        toolbar.AddTool(wx.ID_ABOUT, label="about", bitmap=img_help, shortHelp="about")
+        toolbar.AddTool(wx.ID_EXIT, label="quit", bitmap=img_quit, shortHelp="quit")
         toolbar.Realize()
 
         self.Bind(wx.EVT_TOOL, self.OnOpen, id=wx.ID_OPEN)
