@@ -1534,7 +1534,7 @@ class BlackcatFrame(wx.Frame):
 class CharValidator(wx.PyValidator):
     def __init__(self, data, key):
         wx.PyValidator.__init__(self)
-        self.Bind(wx.EVT_CHAR, self.OnChar)
+        # self.Bind(wx.EVT_CHAR, self.OnChar)
         self.data = data
         self.key = key
 
