@@ -1,9 +1,9 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 #-----------------------------------------------------------------------------
 # Author     : Zhigang Liu
 # Date       : Jan 2009
 # Email      : zgliu2@gmail.com
-# License    : General Public License 2 (GPL2) 
+# License    : General Public License 2 (GPL2)
 # Description: Slice STL CAD file layer by layer
 #-----------------------------------------------------------------------------
 
@@ -31,27 +31,22 @@ import logging
 import pprint
 import math
 import random
-import thread
-import Queue
+import threading
+import queue
 import cat
 
-try:
-    import psyco
-    psyco.full()
-except ImportError, e:
-    pass
 
 try:
     from wx import glcanvas
-except ImportError, e:
-    print e
+except ImportError as e:
+    print(e)
     sys.exit()
 
 try:
     from OpenGL.GL import *
     from OpenGL.GLUT import *
-except ImportError, e:
-    print e
+except ImportError as e:
+    print(e)
     sys.exit()
 
 ERROR = 2
@@ -77,7 +72,7 @@ class EndFileException(Exception):
 class FormatError(Exception):
     def __init__(self, value=None):
         self.value = value
-    
+
     def __str__(self):
         return 'FormatError:' + self.value
 
@@ -101,7 +96,7 @@ class Point:
             return -1
         else:
             return 1
-    
+
     def __hash__(self):
         s = '%.6f %.6f %.6f' % (self.x, self.y, self.z)
         return hash(s)
@@ -120,11 +115,11 @@ class Line:
         dz = self.p1.z - self.p2.z
         sum = dx * dx + dy * dy + dz * dz
         return math.sqrt(sum)
-    
+
     def slope(self):
-        diffy = self.p2.y - self.p1.y 
+        diffy = self.p2.y - self.p1.y
         diffx = self.p2.x - self.p1.x
-        
+
         if equal(diffx, 0.0):
             return sys.maxint
         else:
@@ -150,7 +145,7 @@ def calc_intersected_point(p1, p2, z):
     x2 = p2.x
     y2 = p2.y
     z2 = p2.z
-    
+
     x = intersect(z1, x1, z2, x2, z)
     y = intersect(z1, y1, z2, y2, z)
     p = Point(x, y, z)
@@ -167,7 +162,7 @@ class Facet:
         for p in self.points:
             s += str(p)
         return s
-    
+
     def change_direction(self, direction):
         if direction == "+X":
             for p in self.points:
@@ -194,7 +189,7 @@ class Facet:
         L2 = [True for p in self.points if p.z < z]
         if len(L1) == 3 or len(L2) == 3:
             return (NOT_INTERSECTED, None)
-        
+
         L1 = []
         L2 = []
         for i in range(3):
@@ -203,7 +198,7 @@ class Facet:
                 L1.append(i)
             else:
                 L2.append(i)
-        
+
         points = self.points
         n = len(L1)
         if n == 0:
@@ -223,7 +218,7 @@ class Facet:
         elif n == 2 or n == 3:
             code = REDO
             line = None
-        
+
         return (code, line)
 
     def intersect_0_vertex(self, points, z):
@@ -235,7 +230,7 @@ class Facet:
             if is_intersected(p1, p2, z):
                 p = calc_intersected_point(p1, p2, z)
                 L.append(p)
-        
+
         assert len(L) == 2
         return Line(L[0], L[1])
 
@@ -257,24 +252,24 @@ class Layer:
     def create_gllist(self):
         self.layerListId = 1001
         glNewList(self.layerListId, GL_COMPILE)
-        
+
         glBegin(GL_LINES)
         for chunk in self.chunks:
             r = random.random()
             g = random.random()
             b = random.random()
             glColor(r, g, b)
- 
+
             for line in chunk:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
-        
+
         glColor(1, 1, 1)
         for loop in self.loops:
             for line in loop:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
-        
+
         glEnd()
         glEndList()
         return self.layerListId
@@ -284,8 +279,8 @@ class Layer:
         ok = self.createLoops()
         if not ok:
             return False
-        
-        self.calc_dimension()             
+
+        self.calc_dimension()
         self.create_scanlines()
         self.create_chunks()
         return True
@@ -298,7 +293,7 @@ class Layer:
             loop = []
             line = lines.pop()
             loop.append(line)
-            
+
             start = line.p1
             p2 = line.p2
             while True:
@@ -315,21 +310,21 @@ class Layer:
                         found = True
                         break
 
-                if found:        
+                if found:
                     lines.remove(aline)
                     loop.append(Line(p1, p2))
                     if p2 == start:
                         break
                 else:
-                    print 'error: loop is not found'
+                    print('error: loop is not found')
                     return False
-            
+
             self.move_lines(loop)
             nloop = self.merge_lines(loop)
             self.loops.append(nloop)
-        
-        return True                
-    
+
+        return True
+
     def move_lines(self, loop):
         tail = loop[-1]
         k1 = tail.slope()
@@ -343,12 +338,12 @@ class Layer:
                     rm_list.append(aline)
                 else:
                     break
-            
+
             for it in rm_list:
                 loop.remove(it)
-            
+
             loop.extend(rm_list)
-        
+
         k1 = loop[0].slope()
         k2 = loop[-1].slope()
         assert not equal(k1, k2)
@@ -356,11 +351,11 @@ class Layer:
     def merge_lines(self, loop):
         nloop = []
         while len(loop) != 0:
-            line = loop.pop(0) 
+            line = loop.pop(0)
             k1 = line.slope()
             p1 = line.p1
             p2 = line.p2
-            rm_list = []            
+            rm_list = []
             for aline in loop:
                 k2 = aline.slope()
                 if equal(k1, k2):
@@ -369,11 +364,11 @@ class Layer:
                 else:
                     p2 = aline.p1
                     break
-            
+
             for it in rm_list:
                 loop.remove(it)
             nloop.append(Line(p1, p2))
-        
+
         return nloop
 
     def calc_dimension(self):
@@ -382,30 +377,30 @@ class Layer:
             for line in loop:
                 ylist.append(line.p1.y)
                 ylist.append(line.p2.y)
-        self.miny = min(ylist)                
+        self.miny = min(ylist)
         self.maxy = max(ylist)
-    
+
     def create_scanlines(self):
         self.scanlines = []
         y = self.miny + self.pitch
         lasty = self.miny
         while y < self.maxy:
             code, scanline = self.create_one_scanline(y)
-            
+
             if code == SCANLINE:
                 self.scanlines.append(scanline)
                 lasty = y
                 y += self.pitch
             elif code  == REDO:
-                y = y - self.pitch * 0.01                
+                y = y - self.pitch * 0.01
                 if y < lasty:
                     break
-                
-                print 'recreate scan line'
+
+                print('recreate scan line')
             else:
                 lasty = y
                 y += self.pitch
-    
+
     def create_one_scanline(self, y):
         s = set()
         for loop in self.loops:
@@ -415,16 +410,16 @@ class Layer:
                     return (REDO, None)
                 elif code == INTERSECTED:
                     s.add('%.6f' % x)
-        
+
         xlist = map(lambda x: float(x), s)
-        xlist.sort()                    
+        xlist.sort()
 
         n = len(xlist)
         ok = (n % 2 == 0)
         if not ok:
-            print 'error: no of points in a scanline is not even', n
+            print('error: no of points in a scanline is not even', n)
             assert 0
-        
+
         # Create lines
         lines = []
         for i in range(0, n, 2):
@@ -434,7 +429,7 @@ class Layer:
             p2 = Point(x2, y, self.z)
             line = Line(p1, p2)
             lines.append(line)
-        
+
         if len(lines) > 0:
             code = SCANLINE
         else:
@@ -453,7 +448,7 @@ class Layer:
             if equal(y, y2):
                 count += 1
                 p = line.p2
-            
+
             if count == 0:
                 x = self.intersect_0(y, line)
                 code = INTERSECTED
@@ -468,9 +463,9 @@ class Layer:
                 code = REDO
                 x = None
         else:
-            code = NOT_INTERSECTED 
+            code = NOT_INTERSECTED
             x = None
-        
+
         return (code, x)
 
     def intersect_0(self, y, line):
@@ -478,14 +473,14 @@ class Layer:
         y1 = line.p1.y
         x2 = line.p2.x
         y2 = line.p2.y
-        
+
         if equal(x1, x2):
             x = x1
             return x
         else:
            x = (y -  y1) * (x2 - x1) / (y2 - y1) + x1
            return x
-    
+
     def is_peak(self, y, point, line, loop):
         L = []
         for it in loop:
@@ -493,7 +488,7 @@ class Layer:
                 L.append(it.p2)
             elif point == it.p2:
                 L.append(it.p1)
-        
+
         val = (L[0].y - y) * (L[1].y - y)
         if val > 0.0:
             return True
@@ -505,11 +500,11 @@ class Layer:
             return True
         else:
             return False
-    
+
     def get_overlap_line(self, line, scanline):
         y2 = scanline[0].p1.y
         y1 = line.p1.y
-        
+
         # Are they adjacent lines?
         distance = abs(y2 - y1)
         if equal(distance, self.pitch) or distance < self.pitch:
@@ -519,7 +514,7 @@ class Layer:
                 else:
                     return aline
         else:
-            return False                
+            return False
 
     def create_chunks(self):
         self.chunks = []
@@ -529,56 +524,60 @@ class Layer:
             scanline = scanlines[0]
             line = scanline.pop(0)
             chunk.append(line)
-            
+
             for scanline in scanlines[1:]:
                 nline = self.get_overlap_line(line, scanline)
                 if nline:
                     chunk.append(nline)
                     scanline.remove(nline)
-                    line = nline 
+                    line = nline
                 else:
                     break
-            
+
             self.chunks.append(chunk)
             scanlines = filter(lambda x: len(x) > 0, scanlines)
-    
+
     def write(self, f):
-        print >> f, '<layer id="', self.id, '">'
-        self.writeloop(f)
-        self.writechunks(f)
-        print >> f, '</layer>'
-    
+        pass
+        # print >> f, '<layer id="', self.id, '">'
+        # self.writeloop(f)
+        # self.writechunks(f)
+        # print >> f, '</layer>'
+
     def writeloop(self, f):
-        print >> f, '<loops num="', len(self.loops), '">'
-        count = 1
-        for loop in self.loops:
-            print >> f, '<loop id="', count, '">'
-            for line in loop:
-                writeline(line, f)
-            print >> f, '</loop>'                
-            count += 1
-        print >> f, '</loops>'
+        pass
+        # print >> f, '<loops num="', len(self.loops), '">'
+        # count = 1
+        # for loop in self.loops:
+        #     print >> f, '<loop id="', count, '">'
+        #     for line in loop:
+        #         writeline(line, f)
+        #     print >> f, '</loop>'
+        #     count += 1
+        # print >> f, '</loops>'
 
     def writechunks(self, f):
-        print >> f, '<chunks num="', len(self.chunks), '">'
-        count = 1
-        for chunk in self.chunks:
-            print >> f, '<chunk id="', count, '">'
-            for line in chunk:
-                writeline(line, f)
-            print >> f, '</chunk>'
-            count += 1
-        print >> f, '</chunks>'
+        pass
+        # print >> f, '<chunks num="', len(self.chunks), '">'
+        # count = 1
+        # for chunk in self.chunks:
+        #     print >> f, '<chunk id="', count, '">'
+        #     for line in chunk:
+        #         writeline(line, f)
+        #     print >> f, '</chunk>'
+        #     count += 1
+        # print >> f, '</chunks>'
 
 def writeline(line, f):
-    print >> f, '<line>'
-    for p in (line.p1, line.p2):
-        print >> f, '<point>',
-        print >> f, '<x>', p.x, '</x>',
-        print >> f, '<y>', p.y, '</y>',
-        print >> f, '<z>', p.z, '</z>',
-        print >> f, '</point>'
-    print >> f, '</line>'        
+    pass
+    # print >> f, '<line>'
+    # for p in (line.p1, line.p2):
+    #     print >> f, '<point>',
+    #     print >> f, '<x>', p.x, '</x>',
+    #     print >> f, '<y>', p.y, '</y>',
+    #     print >> f, '<z>', p.z, '</z>',
+    #     print >> f, '</point>'
+    # print >> f, '</line>'
 
 class CadModel:
     def __init__(self):
@@ -587,11 +586,11 @@ class CadModel:
         self.curr_layer = -1
         self.sliced = False
         self.dimension = {}
-    
+
     def next_layer(self):
         n = len(self.layers)
         self.curr_layer = (self.curr_layer + 1) % len(self.layers)
-    
+
     def prev_layer(self):
         n = len(self.layers)
         self.curr_layer -= 1
@@ -610,11 +609,11 @@ class CadModel:
         f = logging.Formatter("%(levelname)s %(filename)s:%(lineno)d %(message)s")
         h.setFormatter(f)
         self.logger.addHandler(h)
-    
+
     def get_line(self, f):
         line = f.readline()
         if not line:
-            raise EndFileException, 'end of file'
+            raise EndFileException('end of file')
         return line.strip()
 
     def get_normal(self, f):
@@ -624,16 +623,17 @@ class CadModel:
         if num_items != 5:
             if num_items >=1 and items[0] == "endsolid":
                 self.loaded = True
-                raise EndFileException, 'endfile'
+                raise EndFileException('endfile')
             else:
                 self.logger.error(line)
-                raise FormatError, line
-        
+                raise FormatError(line)
+
         if items[0] != 'facet' and items[1] != 'normal':
             self.logger.error(line)
-            raise FormatError, line
-        
-        L = map(lambda x: float(x), items[2:])
+            raise FormatError(line)
+
+        # L = map(lambda x: float(x), items[2:])
+        L = [float(x) for x in items[2:]]
         normal = Point(L[0], L[1], L[2])
         return normal
 
@@ -641,7 +641,7 @@ class CadModel:
         line = self.get_line(f)
         if line != "outer loop":
             self.logger.error(line)
-            raise FormatError, line
+            raise FormatError(line)
 
     def get_vertex(self, f):
         points = []
@@ -651,30 +651,31 @@ class CadModel:
             no = len(items)
             if no != 4:
                 self.logger.error(line)
-                raise FormatError, line
+                raise FormatError(line)
             if items[0] != 'vertex':
                 self.logger.error(line)
-                raise FormatError, line
+                raise FormatError(line)
 
-            L = map(lambda x: float(x), items[1:])
+            #L = map(lambda x: float(x), items[1:])
+            L = [float(x) for x in items[1:]]
             point = Point(L[0], L[1], L[2])
             points.append(point)
         return points
-    
+
     def get_end_loop(self, f):
-        line = self.get_line(f) 
+        line = self.get_line(f)
         if line != 'endloop':
             self.logger.error(line)
-            raise FormatError, line
-    
+            raise FormatError(line)
+
     def get_end_facet(self, f):
         line = self.get_line(f)
         if line != 'endfacet':
             self.logger.error(line)
-            raise FormatError, line
+            raise FormatError(line)
 
     def get_facet(self, f):
-        normal = self.get_normal(f)   
+        normal = self.get_normal(f)
         self.get_outer_loop(f)
         points = self.get_vertex(f)
         facet = Facet()
@@ -683,7 +684,7 @@ class CadModel:
         self.get_end_loop(f)
         self.get_end_facet(f)
         return facet
-    
+
     def get_solid_line(self, f):
         ''' Read the first line'''
         line = self.get_line(f)
@@ -693,8 +694,8 @@ class CadModel:
             self.modelName = items[1]
         else:
             self.logger.error(line)
-            raise FormatError, line
-    
+            raise FormatError(line)
+
     def calc_dimension(self):
         if self.loaded:
             xlist = []
@@ -711,7 +712,7 @@ class CadModel:
             self.maxy = max(ylist)
             self.minz = min(zlist)
             self.maxz = max(zlist)
-            
+
             self.xsize = self.maxx - self.minx
             self.ysize = self.maxy - self.miny
             self.zsize = self.maxz - self.minz
@@ -726,23 +727,23 @@ class CadModel:
     def open(self, filename):
         start = time.time()
         try:
-            f = open(filename) 
-        except IOError, e:
-            print e
+            f = open(filename)
+        except IOError as e:
+            print(e)
             return False
-        
+
         try:
             self.get_solid_line(f)
-            self.facets = [] 
+            self.facets = []
             while True:
                 facet = self.get_facet(f)
                 self.facets.append(facet)
-        except EndFileException, e:
+        except EndFileException as e:
             pass
-        except FormatError, e:
-            print e
+        except FormatError as e:
+            print(e)
             return False
-        
+
         if self.loaded:
             self.calc_dimension()
             self.logger.debug("no of facets:" + str(len(self.facets)))
@@ -750,31 +751,31 @@ class CadModel:
             self.sliced = False
             self.set_old_dimension()
             cpu = '%.1f' % (time.time() - start)
-            
-            print 'open cpu', cpu, 'secs'
+
+            print('open cpu', cpu, 'secs')
             return True
         else:
             return False
-    
+
     def save(self, filename):
         f = open(filename, 'w')
-        print >> f, '<slice>'
-        print >> f, '    <dimension>'
-        print >> f, '        <x>', self.xsize, '</x>'
-        print >> f, '        <y>', self.ysize, '</y>'
-        print >> f, '        <z>', self.zsize, '</z>'
-        print >> f, '    </dimension>'
-        print >> f, '    <para>'
-        print >> f, '         <layerheight>', self.height, '</layerheight>'
-        print >> f, '         <layerpitch>', self.pitch, '</layerpitch>'
-        print >> f, '         <speed>', self.speed, '</speed>'
-        print >> f, '    </para>'
-        print >> f, '<layers num="', len(self.layers), '">'
+        # print >> f, '<slice>'
+        # print >> f, '    <dimension>'
+        # print >> f, '        <x>', self.xsize, '</x>'
+        # print >> f, '        <y>', self.ysize, '</y>'
+        # print >> f, '        <z>', self.zsize, '</z>'
+        # print >> f, '    </dimension>'
+        # print >> f, '    <para>'
+        # print >> f, '         <layerheight>', self.height, '</layerheight>'
+        # print >> f, '         <layerpitch>', self.pitch, '</layerpitch>'
+        # print >> f, '         <speed>', self.speed, '</speed>'
+        # print >> f, '    </para>'
+        # print >> f, '<layers num="', len(self.layers), '">'
 
-        for layer in self.layers:
-            layer.write(f)
-        print >> f, '</layers>'
-        print >> f, '</slice>'
+        # for layer in self.layers:
+        #     layer.write(f)
+        # print >> f, '</layers>'
+        # print >> f, '</slice>'
 
     def slice(self, para):
         self.sliced = False
@@ -784,7 +785,7 @@ class CadModel:
         self.fast = float(para["fast"])
         self.direction = para["direction"]
         self.scale = float(para["scale"])
-        
+
         self.scale_model(self.scale)
         self.change_direction(self.direction)
         self.calc_dimension()
@@ -797,7 +798,7 @@ class CadModel:
         else:
             self.sliced = False
             return False
-    
+
     def set_old_dimension(self):
         self.dimension["oldx"] = str(self.xsize)
         self.dimension["oldy"] = str(self.ysize)
@@ -820,11 +821,11 @@ class CadModel:
                 p.y *= factor
                 p.z *= factor
             self.facets.append(nfacet)
-    
+
     def change_direction(self, direction):
         for facet in self.facets:
             facet.change_direction(direction)
-    
+
     def create_layers(self):
         start = time.time()
         self.layers = []
@@ -837,42 +838,42 @@ class CadModel:
         self.queue.put(no)
         while z > self.minz and z <= self.maxz:
             code, layer = self.create_one_layer(z)
-            
+
             if code == LAYER:
                 count += 1
                 layer.id = count
                 self.layers.append(layer)
-                
+
                 lastz = z
                 z += self.height
                 self.queue.put(count)
-                print 'layer', count, '/', no
+                # print 'layer', count, '/', no
             elif code == ERROR:
                 break
             elif code == REDO:
                 z = z - self.height * 0.01
                 if z < lastz:
                     break
-                print 'recreate layer'
+                # print 'recreate layer'
             elif code == NOT_LAYER:
                 lastz = z
                 z += self.height
-           
-        self.queue.put("done")                
-        print 'no of layers:', len(self.layers)                
+
+        self.queue.put("done")
+        # print 'no of layers:', len(self.layers)
         cpu = '%.1f' % (time.time() - start)
-        print 'slice cpu', cpu,'secs'
-    
+        # print 'slice cpu', cpu,'secs'
+
     def create_one_layer(self, z):
         layer = Layer(z, self.pitch)
         lines = []
         for facet in self.facets:
-            code, line = facet.intersect(z) 
+            code, line = facet.intersect(z)
             if code == REDO:
                 return (REDO, None)
             elif code == INTERSECTED:
                 lines.append(line)
-        
+
         if len(lines) != 0:
             ok = layer.set_lines(lines)
             if ok:
@@ -881,7 +882,7 @@ class CadModel:
                 return (ERROR, None)
         else:
             return (NOT_LAYER, None)
-    
+
     def create_gl_model_list(self):
         self.model_list_id = 1000
         glNewList(self.model_list_id, GL_COMPILE)
@@ -918,7 +919,7 @@ class PathCanvas(glcanvas.GLCanvas):
         wx.CallAfter(self.setup_viewport)
         #self.Refresh()
         event.Skip()
-    
+
     def setup_viewport(self):
         self.SetCurrent(self.context)
         size = self.GetClientSize()
@@ -936,7 +937,7 @@ class PathCanvas(glcanvas.GLCanvas):
         size = self.GetClientSize()
         w = size.width
         h = size.height
-        
+
         half = diameter / 2
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
@@ -949,13 +950,13 @@ class PathCanvas(glcanvas.GLCanvas):
             top = half * factor
         else:
             factor = float(w) / h
-            left  = -half * factor 
+            left  = -half * factor
             right = half * factor
             bottom = -half
             top = half
         near = 0
         far = diameter * 2
-        glOrtho(left, right, bottom, top, near, far)           
+        glOrtho(left, right, bottom, top, near, far)
 
     def show_path(self):
         if self.cadmodel.sliced:
@@ -967,7 +968,7 @@ class PathCanvas(glcanvas.GLCanvas):
             glTranslatef(-self.cadmodel.xcenter, -self.cadmodel.ycenter, -z)
             layer_id = self.cadmodel.create_gl_layer_list()
             glCallList(layer_id)
-            
+
 class ModelCanvas(glcanvas.GLCanvas):
 
     def __init__(self, parent, cadmodel):
@@ -997,7 +998,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.show_model()
         self.show_path()
         self.SwapBuffers()
-    
+
     def show_path(self):
         if self.cadmodel.sliced:
             layer_id = self.cadmodel.create_gl_layer_list()
@@ -1006,20 +1007,20 @@ class ModelCanvas(glcanvas.GLCanvas):
     def show_model(self):
         if not self.cadmodel.loaded:
             return
-        
+
         #self.setup_gl_context()
         self.setup_projection()
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
-         
+
         glTranslatef(0, 0, -self.cadmodel.diameter)
         # Rotate model
         glRotatef(self.xangle, 1, 0, 0)
         glRotatef(self.yangle, 0, 1, 0)
-        
+
         # Move model to origin
         glTranslatef(-self.cadmodel.xcenter, -self.cadmodel.ycenter, -self.cadmodel.zcenter)
-        
+
         glCallList(self.cadmodel.model_list_id)
 
     def OnMouseDown(self, evt):
@@ -1043,7 +1044,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.xangle = 0
         self.yangle = 0
         self.SetCurrent(self.context)
-        
+
         if not self.init:
             self.setup_gl_context()
             self.init =  True
@@ -1054,7 +1055,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         wx.CallAfter(self.setup_viewport)
         #self.Refresh()
         event.Skip()
-    
+
     def setup_viewport(self):
         self.SetCurrent(self.context)
         size = self.GetClientSize()
@@ -1065,7 +1066,7 @@ class ModelCanvas(glcanvas.GLCanvas):
         size = self.GetClientSize()
         w = size.width
         h = size.height
-        
+
         half = maxlen / 2
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
@@ -1078,13 +1079,13 @@ class ModelCanvas(glcanvas.GLCanvas):
             top = half * factor
         else:
             factor = float(w) / h
-            left  = -half * factor 
+            left  = -half * factor
             right = half * factor
             bottom = -half
             top = half
         near = 0
         far = maxlen * 4
-        glOrtho(left, right, bottom, top, near, far)    
+        glOrtho(left, right, bottom, top, near, far)
 
     def setup_gl_context(self):
         glMatrixMode(GL_PROJECTION)
@@ -1111,7 +1112,8 @@ class ModelCanvas(glcanvas.GLCanvas):
         glPolygonMode(GL_BACK, GL_LINE)
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
         glEnable(GL_COLOR_MATERIAL)
-        glMaterial(GL_FRONT, GL_SHININESS, 50)#96)
+        #args = (50,)
+        #glMaterial(GL_FRONT, GL_SHININESS, *args)#96)
 
 class DimensionPanel(wx.Panel):
     def __init__(self, parent):
@@ -1120,10 +1122,10 @@ class DimensionPanel(wx.Panel):
         self.create_controls()
 
     def create_controls(self):
-        box = wx.StaticBox(self, label="Dimension") 
+        box = wx.StaticBox(self, label="Dimension")
         sizer = wx.StaticBoxSizer(box, wx.HORIZONTAL)
         self.SetSizer(sizer)
-        
+
         label = "Original"
         items = [("X", "oldx"), ("Y", "oldy"), ("Z", "oldz")]
         s1 = self.create_dimension(label, items)
@@ -1135,7 +1137,7 @@ class DimensionPanel(wx.Panel):
         sizer.Add(s2, 1, wx.EXPAND|wx.ALL, 2)
 
     def create_dimension(self, label, items):
-        sizer = wx.BoxSizer(wx.VERTICAL) 
+        sizer = wx.BoxSizer(wx.VERTICAL)
         caption = wx.StaticText(self, label=label)
         sizer.Add(caption, 0, wx.ALIGN_CENTER)
 
@@ -1161,17 +1163,17 @@ class ControlPanel(wx.Panel):
 
     def create_controls(self):
         mainsizer = wx.BoxSizer(wx.VERTICAL)
-        
+
         sizer = wx.BoxSizer(wx.VERTICAL)
         mainsizer.Add(sizer, 1, wx.ALL|wx.EXPAND, 10)
         self.SetSizer(mainsizer)
-        
+
         # Dimension panel
         self.dimensionPanel = DimensionPanel(self)
-        sizer.Add(self.dimensionPanel, 0, wx.EXPAND|wx.ALIGN_CENTER)
-        
+        sizer.Add(self.dimensionPanel, 0) #, wx.EXPAND|wx.ALIGN_CENTER)
+
         # Slice info panel
-        sizer.Add((10,10)) 
+        sizer.Add((10,10))
         sliceSizer = self.create_slice_info()
         sizer.Add(sliceSizer, 0, wx.EXPAND)
 
@@ -1181,7 +1183,8 @@ class ControlPanel(wx.Panel):
         img = cat.getcatImage()
         w = img.GetWidth()
         h = img.GetHeight()
-        factor = 0.6
+        # XXX
+        factor = 1
         img = img.Scale(w * factor, h * factor)
         img = img.ConvertToGreyscale()
         sb = wx.StaticBitmap(self, -1, wx.BitmapFromImage(img), style=wx.RAISED_BORDER)
@@ -1192,7 +1195,7 @@ class ControlPanel(wx.Panel):
         box = wx.StaticBox(self, -1, "Slice Info")
         sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
 
-        items = [("Layer hight", "height"), ("Pitch", "pitch"), ("Speed", "speed"), 
+        items = [("Layer hight", "height"), ("Pitch", "pitch"), ("Speed", "speed"),
                  ("Direction", "direction"), ("Num Layers", "nolayer"),
                  ("Current Layer", "currlayer")]
         flex = wx.FlexGridSizer(rows=len(items), cols=2, hgap=2, vgap=2)
@@ -1206,7 +1209,7 @@ class ControlPanel(wx.Panel):
         sizer.Add(flex, 1, wx.EXPAND|wx.ALL, 2)
         return sizer
 
-    def set_dimension(self, dimension): 
+    def set_dimension(self, dimension):
         self.dimensionPanel.set_values(dimension)
 
     def set_slice_info(self, info):
@@ -1214,7 +1217,7 @@ class ControlPanel(wx.Panel):
             txt = self.txt_fields[key]
             value = info.get(key, "")
             txt.SetValue(value)
-    
+
     def set_num_layer(self, num_layers):
         self.txt_fields["nolayer"].SetValue(str(num_layers))
 
@@ -1262,7 +1265,7 @@ class BlackcatFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.OnPrevLayer, id=self.ID_PREV)
         self.Bind(wx.EVT_TOOL, self.OnAbout, id=wx.ID_ABOUT)
         self.Bind(wx.EVT_TOOL, self.OnQuit, id=wx.ID_EXIT)
-        
+
     def OnNextLayer(self, event):
         if not self.cadmodel.sliced:
             return
@@ -1280,13 +1283,13 @@ class BlackcatFrame(wx.Frame):
 
     def create_panel(self):
         self.left_panel  = ControlPanel(self)
-        
+
         self.sp = wx.SplitterWindow(self)
         self.model_panel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.path_panel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.path_panel.SetBackgroundColour('sky blue')
         self.sp.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGED, self.OnPosChanging)
-        
+
         # Model canvas
         self.model_canvas = ModelCanvas(self.model_panel, self.cadmodel)
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -1307,7 +1310,7 @@ class BlackcatFrame(wx.Frame):
         self.sp.Initialize(self.model_panel)
         self.sp.SplitVertically(self.model_panel, self.path_panel, 300)
         self.sp.SetMinimumPaneSize(20)
-    
+
     def OnPosChanging(self, event):
         self.Refresh(False)
 
@@ -1317,19 +1320,19 @@ class BlackcatFrame(wx.Frame):
             label = data[0]
             items = data[1:]
             menubar.Append(self.create_menu(items), label)
-        self.SetMenuBar(menubar)    
+        self.SetMenuBar(menubar)
 
     def menu_data(self):
         return (("&File", ("&Open\tCtrl+o", "Open CAD file", self.OnOpen, wx.ID_OPEN),
                           ("S&lice\tCtrl+l", "Slice CAD model", self.OnSlice, -1),
-                          ("&Save\tCtrl+s", "Save slice result as xml file", self.OnSave, wx.ID_SAVE),  
+                          ("&Save\tCtrl+s", "Save slice result as xml file", self.OnSave, wx.ID_SAVE),
                           ("", "", "", ""),
                          ("&Quit\tCtrl+q", "Quit", self.OnQuit, wx.ID_EXIT)),
                 ("Edit", ("Next Layer\tpgdn", "next layer", self.OnNextLayer, -1),
                          ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer, -1)),
                 ("&Help", ("&About", "About this program", self.OnAbout, wx.ID_ABOUT))
                  )
-    
+
     def OnSave(self, event):
         if not self.cadmodel.sliced:
             return
@@ -1342,7 +1345,7 @@ class BlackcatFrame(wx.Frame):
             if ext.lower() != '.xml':
                 filename = filename + '.xml'
             self.cadmodel.save(filename)
-            print 'slicing info is saved in', filename
+            # print 'slicing info is saved in', filename
 
     def OnAbout(self, event):
         info = wx.AboutDialogInfo()
@@ -1366,11 +1369,11 @@ class BlackcatFrame(wx.Frame):
 
     def OnOpen(self, event):
         wildcard = "CAD std files (*.stl)|*.stl|All files (*.*)|*.*"
-        dlg = wx.FileDialog(None, "Open CAD stl file", os.getcwd(), "", wildcard, wx.OPEN)
+        dlg = wx.FileDialog(None, "Open CAD stl file", os.getcwd(), "", wildcard, wx.FD_OPEN)
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
             self.statusbar.SetStatusText(path)
-            print 'open', path
+            # print 'open', path
             ok = self.cadmodel.open(path)
             if ok:
                 self.model_canvas.create_model()
@@ -1392,17 +1395,17 @@ class BlackcatFrame(wx.Frame):
         result = dlg.ShowModal()
         if result == wx.ID_OK:
             dlg.get_values()
-            print 'slicing...'
+            # print 'slicing...'
             self.cadmodel.queue = Queue.Queue()
             thread.start_new_thread(self.cadmodel.slice, (self.slice_parameter,))
             num_layers = self.cadmodel.queue.get()
             if num_layers > 0:
-                pdlg = wx.ProgressDialog("Slicing in progress", "Progress", 
-                                         num_layers, 
+                pdlg = wx.ProgressDialog("Slicing in progress", "Progress",
+                                         num_layers,
                                          style=wx.PD_ELAPSED_TIME|
                                                wx.PD_REMAINING_TIME|
                                                wx.PD_AUTO_HIDE|wx.PD_APP_MODAL)
-            
+
                 while True:
                     count = self.cadmodel.queue.get()
                     if count == 'done':
@@ -1412,7 +1415,7 @@ class BlackcatFrame(wx.Frame):
                     else:
                         pdlg.Update(count)
                 pdlg.Destroy()
-            
+
             self.model_canvas.create_model()
             self.left_panel.set_dimension(self.cadmodel.dimension)
             self.left_panel.set_slice_info(self.slice_parameter)
@@ -1427,7 +1430,7 @@ class BlackcatFrame(wx.Frame):
         dlg.Destroy()
 
     def OnQuit(self, event):
-        self.Close() 
+        self.Close()
 
 class CharValidator(wx.PyValidator):
     def __init__(self, data, key):
@@ -1438,7 +1441,7 @@ class CharValidator(wx.PyValidator):
 
     def Clone(self):
         return CharValidator(self.data, self.key)
-    
+
     def Validate(self, win):
         text_ctrl = self.GetWindow()
         text = text_ctrl.GetValue()
@@ -1452,12 +1455,12 @@ class CharValidator(wx.PyValidator):
             try:
                 value = float(text)
             except ValueError:
-                wx.MessageBox("must be a number", "Error")  
+                wx.MessageBox("must be a number", "Error")
                 text_ctrl.SetBackgroundColour('pink')
                 text_ctrl.SetFocus()
                 text_ctrl.Refresh()
                 return False
-            
+
             if value <= 0:
                 wx.MessageBox("value <= 0!", "Error")
                 text_ctrl.SetBackgroundColour('pink')
@@ -1468,7 +1471,7 @@ class CharValidator(wx.PyValidator):
         text_ctrl.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
         text_ctrl.Refresh()
         return True
-    
+
     def TransferToWindow(self):
         text_ctrl = self.GetWindow()
         value = self.data.get(self.key, "")
@@ -1479,10 +1482,10 @@ class CharValidator(wx.PyValidator):
         text_ctrl = self.GetWindow()
         self.data[self.key] = text_ctrl.GetValue()
         return True
-    
+
     def OnChar(self, event):
         code = event.GetKeyCode()
-        if code < 256: 
+        if code < 256:
             key = chr(code)
             if key in string.letters:
                 return
@@ -1497,7 +1500,7 @@ class SlicePanel(wx.Panel):
     def create_controls(self):
         labels = [("Layer height", "1.0", "height"), ("Pitch", "1.0", "pitch"), \
                   ("Scanning speed", "20", "speed"), ("Fast speed", "20", "fast")]
-        
+
         outsizer = wx.BoxSizer(wx.VERTICAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
         outsizer.Add(sizer, 0, wx.ALL, 10)
@@ -1508,7 +1511,7 @@ class SlicePanel(wx.Panel):
             txt = wx.TextCtrl(self, -1, dvalue, size=(80, -1), validator=CharValidator(self.data, key))
             box.Add(txt, 0, 0)
         sizer.Add(box, 0, 0)
-        
+
         # slice direction
         lbl = wx.StaticText(self, label="Slice direction")
         box.Add(lbl, 0, 0)
@@ -1517,7 +1520,7 @@ class SlicePanel(wx.Panel):
         self.dir_choice = wx.Choice(self, -1, (160, -1), choices=self.dir_list)
         self.dir_choice.SetStringSelection(self.data['direction'])
         box.Add(self.dir_choice, 0, wx.EXPAND)
-        
+
         # scale
         lbl = wx.StaticText(self, label="Scale factor")
         box.Add(lbl, 0, 0)
@@ -1542,7 +1545,7 @@ class ParaDialog(wx.Dialog):
         self.panel = SlicePanel(self, self.slice_parameter)
         sizer.Add(self.panel, 0, 0)
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND|wx.TOP|wx.BOTTOM, 5)
-        
+
         #
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
         btn_sizer.Add((10, 10), 1)
@@ -1557,7 +1560,7 @@ class ParaDialog(wx.Dialog):
 
         self.SetSizer(sizer)
         self.Fit()
-    
+
     def get_values(self):
         self.slice_parameter["direction"] = self.panel.get_direction()
 
