@@ -7,4 +7,6 @@
 * pip install wxpython
 * pip install pyopengl
 
+![Mac](bcat_mac.png)
+
 ![Screenshot](https://github.com/skyera/wxblackcat/blob/master/ubuntu-blackcat.png)
