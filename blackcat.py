@@ -1128,11 +1128,9 @@ class BlackcatFrame(wx.Frame):
         dlg.Destroy()
 
     def OnAbout(self, event):
-        info = wx.adv.AboutDialogInfo()
-        info.Name, info.Version, info.Copyright = "Blackcat", "0.2", "(C) 2009-2026"
-        info.Description = "Modernized STL CAD model slicer"
-        info.Developers, info.License = ["Zhigang Liu"], "GPL2"
-        wx.adv.AboutBox(info)
+        dlg = AboutDialog(self)
+        dlg.ShowModal()
+        dlg.Destroy()
 
     def OnOpen(self, event):
         dlg = wx.FileDialog(
@@ -1199,6 +1197,82 @@ class BlackcatFrame(wx.Frame):
 
     def OnQuit(self, event):
         self.Close()
+
+
+class USFlag(wx.Control):
+    def __init__(self, parent, size=(100, 53)):
+        super().__init__(parent, size=size)
+        self.SetBackgroundStyle(wx.BG_STYLE_PAINT)
+        self.Bind(wx.EVT_PAINT, self.OnPaint)
+
+    def OnPaint(self, event):
+        dc = wx.AutoBufferedPaintDC(self)
+        dc.Clear()
+        w, h = self.GetClientSize()
+
+        # Stripes
+        stripe_h = h / 13
+        for i in range(13):
+            color = wx.Colour(191, 10, 48) if i % 2 == 0 else wx.WHITE
+            dc.SetBrush(wx.Brush(color))
+            dc.SetPen(wx.TRANSPARENT_PEN)
+            dc.DrawRectangle(0, int(i * stripe_h), w, int(stripe_h) + 1)
+
+        # Canton
+        canton_w = int(w * 0.4)
+        canton_h = int(stripe_h * 7)
+        dc.SetBrush(wx.Brush(wx.Colour(0, 40, 104)))
+        dc.DrawRectangle(0, 0, canton_w, canton_h)
+
+        # Simple white dots for stars
+        dc.SetBrush(wx.WHITE_BRUSH)
+        for row in range(5):
+            for col in range(6):
+                dc.DrawCircle(
+                    int(canton_w * (col + 0.5) / 6), int(canton_h * (row + 0.5) / 5), 1
+                )
+
+
+class AboutDialog(wx.Dialog):
+    def __init__(self, parent):
+        super().__init__(parent, title="About Blackcat", style=wx.DEFAULT_DIALOG_STYLE)
+        self.create_controls()
+
+    def create_controls(self):
+        sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # App Info
+        title = wx.StaticText(self, label="Blackcat")
+        title.SetFont(wx.Font(18, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        sizer.Add(title, 0, wx.ALIGN_CENTER | wx.TOP, 15)
+
+        version = wx.StaticText(self, label="Version 0.2")
+        sizer.Add(version, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
+
+        # The Flag
+        flag = USFlag(self, size=(120, 63))
+        sizer.Add(flag, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+
+        # Description
+        desc = wx.StaticText(self, label="Modernized STL CAD model slicer")
+        sizer.Add(desc, 0, wx.ALIGN_CENTER | wx.ALL, 5)
+
+        # Authors & Copyright
+        author = wx.StaticText(self, label="Developed by Zhigang Liu")
+        sizer.Add(author, 0, wx.ALIGN_CENTER | wx.TOP, 10)
+
+        copyright = wx.StaticText(self, label="(C) 2009-2026")
+        sizer.Add(copyright, 0, wx.ALIGN_CENTER | wx.BOTTOM, 10)
+
+        license = wx.StaticText(self, label="Licensed under GPL2")
+        sizer.Add(license, 0, wx.ALIGN_CENTER | wx.BOTTOM, 15)
+
+        # OK Button
+        btn_sizer = self.CreateButtonSizer(wx.OK)
+        sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER | wx.BOTTOM, 15)
+
+        self.SetSizer(sizer)
+        self.Fit()
 
 
 class CharValidator(wx.Validator):
