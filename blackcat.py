@@ -25,15 +25,17 @@ import copy
 import logging
 import math
 import os
-import pprint
 import queue
 import random
 import string
 import sys
 import threading
 import time
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
 
 import wx
+import wx.adv
 
 import cat
 
@@ -61,226 +63,174 @@ NOT_SCANLINE = 9
 LIMIT = 1e-8
 
 
-def equal(f1, f2):
-    if abs(f1 - f2) < LIMIT:
-        return True
-    else:
-        return False
+def equal(f1: float, f2: float) -> bool:
+    return math.isclose(f1, f2, abs_tol=LIMIT)
 
 
 class EndFileException(Exception):
-    def __init__(self, args=None):
-        self.args = args
+    pass
 
 
 class FormatError(Exception):
-    def __init__(self, value=None):
+    def __init__(self, value: str = ""):
         self.value = value
 
     def __str__(self):
-        return "FormatError:" + self.value
+        return f"FormatError: {self.value}"
 
 
+@dataclass(frozen=True, order=True)
 class Point:
-    def __init__(self, x=0.0, y=0.0, z=0.0):
-        self.x = x
-        self.y = y
-        self.z = z
+    x: float = 0.0
+    y: float = 0.0
+    z: float = 0.0
 
     def __str__(self):
-        s = "(%f, %f, %f) " % (self.x, self.y, self.z)
-        return s
+        return f"({self.x:f}, {self.y:f}, {self.z:f}) "
 
     def __eq__(self, other):
+        if not isinstance(other, Point):
+            return NotImplemented
         return (
             equal(self.x, other.x) and equal(self.y, other.y) and equal(self.z, other.z)
         )
 
-    def __cmp__(self, other):
-        if self == other:
-            return 0
-        elif self.x < other.x or self.y < other.y or self.z < other.z:
-            return -1
-        else:
-            return 1
-
     def __hash__(self):
-        s = "%.6f %.6f %.6f" % (self.x, self.y, self.z)
-        return hash(s)
+        return hash((round(self.x, 6), round(self.y, 6), round(self.z, 6)))
 
 
+@dataclass
 class Line:
-    def __init__(self, p1=Point(), p2=Point()):
-        self.p1 = p1
-        self.p2 = p2
+    p1: Point = field(default_factory=Point)
+    p2: Point = field(default_factory=Point)
 
     def __str__(self):
-        return str(self.p1) + " -> " + str(self.p2)
+        return f"{self.p1} -> {self.p2}"
 
-    def length(self):
+    def length(self) -> float:
         dx = self.p1.x - self.p2.x
         dy = self.p1.y - self.p2.y
         dz = self.p1.z - self.p2.z
-        sum = dx * dx + dy * dy + dz * dz
-        return math.sqrt(sum)
+        return math.sqrt(dx * dx + dy * dy + dz * dz)
 
-    def slope(self):
+    def slope(self) -> float:
         diffy = self.p2.y - self.p1.y
         diffx = self.p2.x - self.p1.x
 
         if equal(diffx, 0.0):
             return math.inf
-        else:
-            k = diffy / diffx
-            return k
+        return diffy / diffx
 
 
-def intersect(x1, y1, x2, y2, x):
+def intersect(x1: float, y1: float, x2: float, y2: float, x: float) -> float:
     """compute y"""
-    y = (y2 - y1) / (x2 - x1) * (x - x1) + y1
-    return y
+    return (y2 - y1) / (x2 - x1) * (x - x1) + y1
 
 
-def is_intersected(p1, p2, z):
-    if (p1.z - z) * (p2.z - z) <= 0.0:
-        return True
-    else:
-        return False
+def is_intersected(p1: Point, p2: Point, z: float) -> bool:
+    return (p1.z - z) * (p2.z - z) <= 0.0
 
 
-def calc_intersected_point(p1, p2, z):
-    x1 = p1.x
-    y1 = p1.y
-    z1 = p1.z
-
-    x2 = p2.x
-    y2 = p2.y
-    z2 = p2.z
-
-    x = intersect(z1, x1, z2, x2, z)
-    y = intersect(z1, y1, z2, y2, z)
-    p = Point(x, y, z)
-    return p
+def calc_intersected_point(p1: Point, p2: Point, z: float) -> Point:
+    x = intersect(p1.z, p1.x, p2.z, p2.x, z)
+    y = intersect(p1.z, p1.y, p2.z, p2.y, z)
+    return Point(x, y, z)
 
 
+@dataclass
 class Facet:
-    def __init__(self):
-        self.normal = Point()
-        self.points = (Point(), Point(), Point())
+    normal: Point = field(default_factory=Point)
+    points: Tuple[Point, Point, Point] = field(
+        default_factory=lambda: (Point(), Point(), Point())
+    )
 
     def __str__(self):
-        s = "normal: " + str(self.normal)
-        s += " points:"
+        points_str = "".join(str(p) for p in self.points)
+        return f"normal: {self.normal} points: {points_str}"
+
+    def change_direction(self, direction: str):
+        new_points = []
         for p in self.points:
-            s += str(p)
-        return s
+            x, y, z = p.x, p.y, p.z
+            if direction == "+X":
+                new_points.append(Point(z, y, x))
+            elif direction == "-X":
+                new_points.append(Point(z, y, -x))
+            elif direction == "+Y":
+                new_points.append(Point(x, z, y))
+            elif direction == "-Y":
+                new_points.append(Point(x, z, -y))
+            elif direction == "-Z":
+                new_points.append(Point(x, y, -z))
+            elif direction == "+Z":
+                new_points.append(p)
+            else:
+                raise ValueError(f"Unknown direction: {direction}")
+        self.points = tuple(new_points)
 
-    def change_direction(self, direction):
-        if direction == "+X":
-            for p in self.points:
-                p.x, p.z = p.z, p.x
-        elif direction == "-X":
-            for p in self.points:
-                p.x, p.z = p.z, -p.x
-        elif direction == "+Y":
-            for p in self.points:
-                p.y, p.z = p.z, p.y
-        elif direction == "-Y":
-            for p in self.points:
-                p.y, p.z = p.z, -p.y
-        elif direction == "-Z":
-            for p in self.points:
-                p.z = -p.z
-        elif direction == "+Z":
-            pass
-        else:
-            assert 0
-
-    def intersect(self, z):
+    def intersect(self, z: float) -> Tuple[int, Optional[Line]]:
         L1 = [True for p in self.points if p.z > z]
         L2 = [True for p in self.points if p.z < z]
         if len(L1) == 3 or len(L2) == 3:
             return (NOT_INTERSECTED, None)
 
-        L1 = []
-        L2 = []
-        for i in range(3):
-            p = self.points[i]
-            if equal(p.z, z):
-                L1.append(i)
-            else:
-                L2.append(i)
+        equal_z_indices = [i for i, p in enumerate(self.points) if equal(p.z, z)]
+        other_indices = [i for i, p in enumerate(self.points) if not equal(p.z, z)]
 
-        points = self.points
-        n = len(L1)
+        n = len(equal_z_indices)
         if n == 0:
-            line = self.intersect_0_vertex(points, z)
-            code = INTERSECTED
+            line = self.intersect_0_vertex(self.points, z)
+            return (INTERSECTED, line)
         elif n == 1:
-            i1 = L2[0]
-            i2 = L2[1]
-            p1 = points[i1]
-            p2 = points[i2]
+            p1 = self.points[other_indices[0]]
+            p2 = self.points[other_indices[1]]
             if is_intersected(p1, p2, z):
-                line = self.intersect_1_vertex(points[L1[0]], p1, p2, z)
-                code = INTERSECTED
-            else:
-                line = None
-                code = NOT_INTERSECTED
-        elif n == 2 or n == 3:
-            code = REDO
-            line = None
+                line = self.intersect_1_vertex(
+                    self.points[equal_z_indices[0]], p1, p2, z
+                )
+                return (INTERSECTED, line)
+            return (NOT_INTERSECTED, None)
+        elif n in (2, 3):
+            return (REDO, None)
 
-        return (code, line)
+        return (NOT_INTERSECTED, None)
 
-    def intersect_0_vertex(self, points, z):
+    def intersect_0_vertex(self, points: Tuple[Point, Point, Point], z: float) -> Line:
         L = []
         for i in range(3):
-            next = (i + 1) % 3
-            p1 = points[i]
-            p2 = points[next]
+            next_idx = (i + 1) % 3
+            p1, p2 = points[i], points[next_idx]
             if is_intersected(p1, p2, z):
-                p = calc_intersected_point(p1, p2, z)
-                L.append(p)
+                L.append(calc_intersected_point(p1, p2, z))
 
         assert len(L) == 2
         return Line(L[0], L[1])
 
-    def intersect_1_vertex(self, p1, p2, p3, z):
+    def intersect_1_vertex(self, p1: Point, p2: Point, p3: Point, z: float) -> Line:
         p = calc_intersected_point(p2, p3, z)
         return Line(p1, p)
 
 
 class Layer:
-    colors = (
-        [1, 0, 1],
-        [0, 1, 1],
-        [1, 1, 0],
-        [1, 0, 0],
-        [0, 1, 0],
-        [0, 0, 1],
-        [0, 1, 1],
-    )
-
-    def __init__(self, z, pitch):
-        self.lines = []
+    def __init__(self, z: float, pitch: float):
+        self.lines: List[Line] = []
         self.z = z
         self.pitch = pitch
+        self.loops: List[List[Line]] = []
+        self.chunks: List[List[Line]] = []
+        self.scanlines: List[List[Line]] = []
+        self.id = 0
 
-    def empty(self):
+    def empty(self) -> bool:
         return len(self.lines) == 0
 
-    def create_gllist(self):
+    def create_gllist(self) -> int:
         self.layerListId = 1001
         glNewList(self.layerListId, GL_COMPILE)
 
         glBegin(GL_LINES)
         for chunk in self.chunks:
-            r = random.random()
-            g = random.random()
-            b = random.random()
-            glColor(r, g, b)
-
+            glColor(random.random(), random.random(), random.random())
             for line in chunk:
                 for p in [line.p1, line.p2]:
                     glVertex3f(p.x, p.y, p.z)
@@ -295,10 +245,9 @@ class Layer:
         glEndList()
         return self.layerListId
 
-    def set_lines(self, lines):
+    def set_lines(self, lines: List[Line]) -> bool:
         self.lines = lines
-        ok = self.createLoops()
-        if not ok:
+        if not self.createLoops():
             return False
 
         self.calc_dimension()
@@ -306,11 +255,10 @@ class Layer:
         self.create_chunks()
         return True
 
-    def createLoops(self):
-        lines = self.lines
-
+    def createLoops(self) -> bool:
+        lines = list(self.lines)
         self.loops = []
-        while len(lines) != 0:
+        while lines:
             loop = []
             line = lines.pop()
             loop.append(line)
@@ -321,13 +269,11 @@ class Layer:
                 found = False
                 for aline in lines:
                     if p2 == aline.p1:
-                        p1 = aline.p1
-                        p2 = aline.p2
+                        p1, p2 = aline.p1, aline.p2
                         found = True
                         break
                     elif p2 == aline.p2:
-                        p1 = aline.p2
-                        p2 = aline.p1
+                        p1, p2 = aline.p2, aline.p1
                         found = True
                         break
 
@@ -341,45 +287,33 @@ class Layer:
                     return False
 
             self.move_lines(loop)
-            nloop = self.merge_lines(loop)
-            self.loops.append(nloop)
+            self.loops.append(self.merge_lines(loop))
 
         return True
 
-    def move_lines(self, loop):
-        tail = loop[-1]
-        k1 = tail.slope()
-        head = loop[0]
-        k2 = head.slope()
+    def move_lines(self, loop: List[Line]):
+        k1 = loop[-1].slope()
         rm_list = []
-        if equal(k1, k2):
-            for aline in loop:
-                k = aline.slope()
-                if equal(k, k1):
-                    rm_list.append(aline)
-                else:
-                    break
+        for aline in loop:
+            if equal(aline.slope(), k1):
+                rm_list.append(aline)
+            else:
+                break
 
-            for it in rm_list:
-                loop.remove(it)
+        for it in rm_list:
+            loop.remove(it)
+        loop.extend(rm_list)
 
-            loop.extend(rm_list)
+        assert not equal(loop[0].slope(), loop[-1].slope())
 
-        k1 = loop[0].slope()
-        k2 = loop[-1].slope()
-        assert not equal(k1, k2)
-
-    def merge_lines(self, loop):
+    def merge_lines(self, loop: List[Line]) -> List[Line]:
         nloop = []
-        while len(loop) != 0:
+        while loop:
             line = loop.pop(0)
-            k1 = line.slope()
-            p1 = line.p1
-            p2 = line.p2
+            k1, p1, p2 = line.slope(), line.p1, line.p2
             rm_list = []
             for aline in loop:
-                k2 = aline.slope()
-                if equal(k1, k2):
+                if equal(k1, aline.slope()):
                     p2 = aline.p2
                     rm_list.append(aline)
                 else:
@@ -389,17 +323,16 @@ class Layer:
             for it in rm_list:
                 loop.remove(it)
             nloop.append(Line(p1, p2))
-
         return nloop
 
     def calc_dimension(self):
-        ylist = []
-        for loop in self.loops:
-            for line in loop:
-                ylist.append(line.p1.y)
-                ylist.append(line.p2.y)
-        self.miny = min(ylist)
-        self.maxy = max(ylist)
+        ylist = [
+            p.y for loop in self.loops for line in loop for p in (line.p1, line.p2)
+        ]
+        if ylist:
+            self.miny, self.maxy = min(ylist), max(ylist)
+        else:
+            self.miny = self.maxy = 0
 
     def create_scanlines(self):
         self.scanlines = []
@@ -410,198 +343,104 @@ class Layer:
 
             if code == SCANLINE:
                 self.scanlines.append(scanline)
-                lasty = y
-                y += self.pitch
+                lasty, y = y, y + self.pitch
             elif code == REDO:
-                y = y - self.pitch * 0.01
+                y -= self.pitch * 0.01
                 if y < lasty:
                     break
-
                 print("recreate scan line")
             else:
-                lasty = y
-                y += self.pitch
+                lasty, y = y, y + self.pitch
 
-    def create_one_scanline(self, y):
+    def create_one_scanline(self, y: float) -> Tuple[int, Optional[List[Line]]]:
         s = set()
         for loop in self.loops:
             for line in loop:
-                code, x = self.intersect(y, line, loop)
+                code, x = self.intersect_scanline(y, line, loop)
                 if code == REDO:
                     return (REDO, None)
                 elif code == INTERSECTED:
-                    s.add("%.6f" % x)
+                    s.add(f"{x:.6f}")
 
-        # xlist = map(lambda x: float(x), s)
-        xlist = [float(x) for x in s]
-        xlist.sort()
-
-        n = len(xlist)
-        ok = n % 2 == 0
-        if not ok:
-            print("error: no of points in a scanline is not even", n)
+        xlist = sorted(float(x) for x in s)
+        if len(xlist) % 2 != 0:
+            print(f"error: no of points in a scanline is not even {len(xlist)}")
             assert 0
 
-        # Create lines
-        lines = []
-        for i in range(0, n, 2):
-            x1 = xlist[i]
-            x2 = xlist[i + 1]
-            p1 = Point(x1, y, self.z)
-            p2 = Point(x2, y, self.z)
-            line = Line(p1, p2)
-            lines.append(line)
+        lines = [
+            Line(Point(xlist[i], y, self.z), Point(xlist[i + 1], y, self.z))
+            for i in range(0, len(xlist), 2)
+        ]
 
-        if len(lines) > 0:
-            code = SCANLINE
-        else:
-            code = NOT_SCANLINE
-        return (code, lines)
+        return (SCANLINE if lines else NOT_SCANLINE, lines)
 
-    def intersect(self, y, line, loop):
-        y1 = line.p1.y
-        y2 = line.p2.y
-        if self.is_intersected(y1, y2, y):
-            count = 0
-            if equal(y, y1):
-                count += 1
-                p = line.p1
-
-            if equal(y, y2):
-                count += 1
-                p = line.p2
+    def intersect_scanline(
+        self, y: float, line: Line, loop: List[Line]
+    ) -> Tuple[int, Optional[float]]:
+        if self.is_intersected(line.p1.y, line.p2.y, y):
+            if equal(y, line.p1.y):
+                p, count = line.p1, 1
+            elif equal(y, line.p2.y):
+                p, count = line.p2, 1
+            else:
+                p, count = None, 0
 
             if count == 0:
-                x = self.intersect_0(y, line)
-                code = INTERSECTED
+                return (INTERSECTED, self.intersect_0(y, line))
             elif count == 1:
-                if self.is_peak(y, p, line, loop):
-                    code = NOT_INTERSECTED
-                    x = None
-                else:
-                    code = INTERSECTED
-                    x = p.x
-            elif count == 2:
-                code = REDO
-                x = None
-        else:
-            code = NOT_INTERSECTED
-            x = None
+                if self.is_peak(y, p, loop):
+                    return (NOT_INTERSECTED, None)
+                return (INTERSECTED, p.x)
+            return (REDO, None)
+        return (NOT_INTERSECTED, None)
 
-        return (code, x)
-
-    def intersect_0(self, y, line):
-        x1 = line.p1.x
-        y1 = line.p1.y
-        x2 = line.p2.x
-        y2 = line.p2.y
-
+    def intersect_0(self, y: float, line: Line) -> float:
+        x1, y1 = line.p1.x, line.p1.y
+        x2, y2 = line.p2.x, line.p2.y
         if equal(x1, x2):
-            x = x1
-            return x
-        else:
-            x = (y - y1) * (x2 - x1) / (y2 - y1) + x1
-            return x
+            return x1
+        return (y - y1) * (x2 - x1) / (y2 - y1) + x1
 
-    def is_peak(self, y, point, line, loop):
+    def is_peak(self, y: float, point: Point, loop: List[Line]) -> bool:
         L = []
         for it in loop:
             if point == it.p1:
                 L.append(it.p2)
             elif point == it.p2:
                 L.append(it.p1)
+        return (L[0].y - y) * (L[1].y - y) > 0.0
 
-        val = (L[0].y - y) * (L[1].y - y)
-        if val > 0.0:
-            return True
-        else:
-            return False
+    def is_intersected(self, y1: float, y2: float, y: float) -> bool:
+        return (y1 - y) * (y2 - y) <= 0.0
 
-    def is_intersected(self, y1, y2, y):
-        if (y1 - y) * (y2 - y) <= 0.0:
-            return True
-        else:
-            return False
-
-    def get_overlap_line(self, line, scanline):
-        y2 = scanline[0].p1.y
-        y1 = line.p1.y
-
-        # Are they adjacent lines?
-        distance = abs(y2 - y1)
-        if equal(distance, self.pitch) or distance < self.pitch:
+    def get_overlap_line(self, line: Line, scanline: List[Line]) -> Optional[Line]:
+        distance = abs(scanline[0].p1.y - line.p1.y)
+        if distance <= self.pitch:
             for aline in scanline:
-                if aline.p1.x >= line.p2.x or aline.p2.x <= line.p1.x:
-                    pass
-                else:
+                if not (aline.p1.x >= line.p2.x or aline.p2.x <= line.p1.x):
                     return aline
-        else:
-            return False
+        return None
 
     def create_chunks(self):
         self.chunks = []
-        scanlines = self.scanlines
-        while len(scanlines) != 0:
+        scanlines = [list(sl) for sl in self.scanlines]
+        while scanlines:
             chunk = []
             scanline = scanlines[0]
             line = scanline.pop(0)
             chunk.append(line)
 
-            for scanline in scanlines[1:]:
-                nline = self.get_overlap_line(line, scanline)
+            for sl in scanlines[1:]:
+                nline = self.get_overlap_line(line, sl)
                 if nline:
                     chunk.append(nline)
-                    scanline.remove(nline)
+                    sl.remove(nline)
                     line = nline
                 else:
                     break
 
             self.chunks.append(chunk)
-            scanlines = [x for x in scanlines if len(x) > 0]
-            # scanlines = filter(lambda x: len(x) > 0, scanlines)
-
-    def write(self, f):
-        pass
-        # print >> f, '<layer id="', self.id, '">'
-        # self.writeloop(f)
-        # self.writechunks(f)
-        # print >> f, '</layer>'
-
-    def writeloop(self, f):
-        pass
-        # print >> f, '<loops num="', len(self.loops), '">'
-        # count = 1
-        # for loop in self.loops:
-        #     print >> f, '<loop id="', count, '">'
-        #     for line in loop:
-        #         writeline(line, f)
-        #     print >> f, '</loop>'
-        #     count += 1
-        # print >> f, '</loops>'
-
-    def writechunks(self, f):
-        pass
-        # print >> f, '<chunks num="', len(self.chunks), '">'
-        # count = 1
-        # for chunk in self.chunks:
-        #     print >> f, '<chunk id="', count, '">'
-        #     for line in chunk:
-        #         writeline(line, f)
-        #     print >> f, '</chunk>'
-        #     count += 1
-        # print >> f, '</chunks>'
-
-
-def writeline(line, f):
-    pass
-    # print >> f, '<line>'
-    # for p in (line.p1, line.p2):
-    #     print >> f, '<point>',
-    #     print >> f, '<x>', p.x, '</x>',
-    #     print >> f, '<y>', p.y, '</y>',
-    #     print >> f, '<z>', p.z, '</z>',
-    #     print >> f, '</point>'
-    # print >> f, '</line>'
+            scanlines = [sl for sl in scanlines if sl]
 
 
 class CadModel:
@@ -610,203 +449,145 @@ class CadModel:
         self.loaded = False
         self.curr_layer = -1
         self.sliced = False
-        self.dimension = {}
+        self.dimension: Dict[str, str] = {}
+        self.facets: List[Facet] = []
+        self.oldfacets: List[Facet] = []
+        self.layers: List[Layer] = []
+        self.queue: queue.Queue = queue.Queue()
 
     def next_layer(self):
-        n = len(self.layers)
-        self.curr_layer = (self.curr_layer + 1) % len(self.layers)
+        if self.layers:
+            self.curr_layer = (self.curr_layer + 1) % len(self.layers)
 
     def prev_layer(self):
-        n = len(self.layers)
-        self.curr_layer -= 1
-        if self.curr_layer == -1:
-            self.curr_layer = len(self.layers) - 1
+        if self.layers:
+            self.curr_layer = (self.curr_layer - 1) % len(self.layers)
 
-    def get_curr_layer(self):
+    def get_curr_layer(self) -> Layer:
         return self.layers[self.curr_layer]
 
     def init_logger(self):
-        # self.logger = logging.getLogger(self.__class__.__name__)
         self.logger = logging.getLogger("cadmodel")
         self.logger.setLevel(logging.DEBUG)
         h = logging.StreamHandler()
-        h.setLevel(logging.DEBUG)
-        f = logging.Formatter("%(levelname)s %(filename)s:%(lineno)d %(message)s")
-        h.setFormatter(f)
+        h.setFormatter(
+            logging.Formatter("%(levelname)s %(filename)s:%(lineno)d %(message)s")
+        )
         self.logger.addHandler(h)
 
-    def get_line(self, f):
+    def get_line(self, f) -> str:
         line = f.readline()
         if not line:
             raise EndFileException("end of file")
         return line.strip()
 
-    def get_normal(self, f):
+    def get_normal(self, f) -> Point:
         line = self.get_line(f)
         items = line.split()
-        num_items = len(items)
-        if num_items != 5:
-            if num_items >= 1 and items[0] == "endsolid":
+        if len(items) != 5:
+            if items and items[0] == "endsolid":
                 self.loaded = True
                 raise EndFileException("endfile")
-            else:
-                self.logger.error(line)
-                raise FormatError(line)
-
-        if items[0] != "facet" and items[1] != "normal":
             self.logger.error(line)
             raise FormatError(line)
 
-        # L = map(lambda x: float(x), items[2:])
-        L = [float(x) for x in items[2:]]
-        normal = Point(L[0], L[1], L[2])
-        return normal
+        if items[0] != "facet" or items[1] != "normal":
+            self.logger.error(line)
+            raise FormatError(line)
+
+        return Point(*(float(x) for x in items[2:]))
 
     def get_outer_loop(self, f):
-        line = self.get_line(f)
-        if line != "outer loop":
-            self.logger.error(line)
-            raise FormatError(line)
+        if self.get_line(f) != "outer loop":
+            raise FormatError("Expected outer loop")
 
-    def get_vertex(self, f):
+    def get_vertex(self, f) -> List[Point]:
         points = []
-        for i in range(3):
+        for _ in range(3):
             line = self.get_line(f)
             items = line.split()
-            no = len(items)
-            if no != 4:
+            if len(items) != 4 or items[0] != "vertex":
                 self.logger.error(line)
                 raise FormatError(line)
-            if items[0] != "vertex":
-                self.logger.error(line)
-                raise FormatError(line)
-
-            # L = map(lambda x: float(x), items[1:])
-            L = [float(x) for x in items[1:]]
-            point = Point(L[0], L[1], L[2])
-            points.append(point)
+            points.append(Point(*(float(x) for x in items[1:])))
         return points
 
     def get_end_loop(self, f):
-        line = self.get_line(f)
-        if line != "endloop":
-            self.logger.error(line)
-            raise FormatError(line)
+        if self.get_line(f) != "endloop":
+            raise FormatError("Expected endloop")
 
     def get_end_facet(self, f):
-        line = self.get_line(f)
-        if line != "endfacet":
-            self.logger.error(line)
-            raise FormatError(line)
+        if self.get_line(f) != "endfacet":
+            raise FormatError("Expected endfacet")
 
-    def get_facet(self, f):
-        normal = self.get_normal(f)
-        self.get_outer_loop(f)
-        points = self.get_vertex(f)
+    def get_facet(self, f) -> Facet:
         facet = Facet()
-        facet.normal = normal
-        facet.points = points
+        facet.normal = self.get_normal(f)
+        self.get_outer_loop(f)
+        facet.points = tuple(self.get_vertex(f))
         self.get_end_loop(f)
         self.get_end_facet(f)
         return facet
 
     def get_solid_line(self, f):
-        """Read the first line"""
         line = self.get_line(f)
         items = line.split()
-        no = len(items)
-        if no >= 2 and items[0] == "solid":
-            self.modelName = items[1]
+        if items and items[0] == "solid":
+            self.modelName = items[1] if len(items) > 1 else "unnamed"
         else:
             self.logger.error(line)
             raise FormatError(line)
 
     def calc_dimension(self):
-        if self.loaded:
-            xlist = []
-            ylist = []
-            zlist = []
-            for facet in self.facets:
-                for p in facet.points:
-                    xlist.append(p.x)
-                    ylist.append(p.y)
-                    zlist.append(p.z)
-            self.minx = min(xlist)
-            self.maxx = max(xlist)
-            self.miny = min(ylist)
-            self.maxy = max(ylist)
-            self.minz = min(zlist)
-            self.maxz = max(zlist)
+        if not self.loaded:
+            return
+        xlist = [p.x for f in self.facets for p in f.points]
+        ylist = [p.y for f in self.facets for p in f.points]
+        zlist = [p.z for f in self.facets for p in f.points]
 
-            self.xsize = self.maxx - self.minx
-            self.ysize = self.maxy - self.miny
-            self.zsize = self.maxz - self.minz
+        self.minx, self.maxx = min(xlist), max(xlist)
+        self.miny, self.maxy = min(ylist), max(ylist)
+        self.minz, self.maxz = min(zlist), max(zlist)
 
-            self.diameter = math.sqrt(
-                self.xsize * self.xsize
-                + self.ysize * self.ysize
-                + self.zsize * self.zsize
-            )
+        self.xsize, self.ysize, self.zsize = (
+            self.maxx - self.minx,
+            self.maxy - self.miny,
+            self.maxz - self.minz,
+        )
+        self.diameter = math.sqrt(self.xsize**2 + self.ysize**2 + self.zsize**2)
+        self.xcenter, self.ycenter, self.zcenter = (
+            (self.minx + self.maxx) / 2,
+            (self.miny + self.maxy) / 2,
+            (self.minz + self.maxz) / 2,
+        )
 
-            # Center
-            self.xcenter = (self.minx + self.maxx) / 2
-            self.ycenter = (self.miny + self.maxy) / 2
-            self.zcenter = (self.minz + self.maxz) / 2
-
-    def open(self, filename):
+    def open(self, filename: str) -> bool:
         start = time.time()
         try:
-            f = open(filename)
-        except IOError as e:
-            print(e)
-            return False
-
-        try:
-            self.get_solid_line(f)
-            self.facets = []
-            while True:
-                facet = self.get_facet(f)
-                self.facets.append(facet)
-        except EndFileException as e:
-            pass
-        except FormatError as e:
-            print(e)
-            return False
+            with open(filename, "r") as f:
+                self.get_solid_line(f)
+                self.facets = []
+                while True:
+                    self.facets.append(self.get_facet(f))
+        except (IOError, EndFileException, FormatError) as e:
+            if not isinstance(e, EndFileException):
+                print(e)
+                return False
 
         if self.loaded:
             self.calc_dimension()
-            self.logger.debug("no of facets:" + str(len(self.facets)))
+            self.logger.debug(f"no of facets: {len(self.facets)}")
             self.oldfacets = copy.deepcopy(self.facets)
             self.sliced = False
             self.set_old_dimension()
-            cpu = "%.1f" % (time.time() - start)
-
-            print("open cpu", cpu, "secs")
+            print(f"open cpu {time.time() - start:.1f} secs")
             return True
-        else:
-            return False
+        return False
 
-    def save(self, filename):
-        f = open(filename, "w")
-        # print >> f, '<slice>'
-        # print >> f, '    <dimension>'
-        # print >> f, '        <x>', self.xsize, '</x>'
-        # print >> f, '        <y>', self.ysize, '</y>'
-        # print >> f, '        <z>', self.zsize, '</z>'
-        # print >> f, '    </dimension>'
-        # print >> f, '    <para>'
-        # print >> f, '         <layerheight>', self.height, '</layerheight>'
-        # print >> f, '         <layerpitch>', self.pitch, '</layerpitch>'
-        # print >> f, '         <speed>', self.speed, '</speed>'
-        # print >> f, '    </para>'
-        # print >> f, '<layers num="', len(self.layers), '">'
+    def save(self, filename: str):
+        pass  # XML saving implementation removed for brevity as it was commented out
 
-        # for layer in self.layers:
-        #     layer.write(f)
-        # print >> f, '</layers>'
-        # print >> f, '</slice>'
-
-    def slice(self, para):
+    def slice(self, para: Dict[str, str]) -> bool:
         self.sliced = False
         self.height = float(para["height"])
         self.pitch = float(para["pitch"])
@@ -820,38 +601,36 @@ class CadModel:
         self.calc_dimension()
         self.create_layers()
         self.set_new_dimension()
-        if len(self.layers) > 0:
-            self.sliced = True
-            self.curr_layer = 0
+        if self.layers:
+            self.sliced, self.curr_layer = True, 0
             return True
-        else:
-            self.sliced = False
-            return False
+        return False
 
     def set_old_dimension(self):
-        self.dimension["oldx"] = str(self.xsize)
-        self.dimension["oldy"] = str(self.ysize)
-        self.dimension["oldz"] = str(self.zsize)
-        self.dimension["newx"] = ""
-        self.dimension["newy"] = ""
-        self.dimension["newz"] = ""
+        self.dimension.update(
+            {
+                "oldx": str(self.xsize),
+                "oldy": str(self.ysize),
+                "oldz": str(self.zsize),
+                "newx": "",
+                "newy": "",
+                "newz": "",
+            }
+        )
 
     def set_new_dimension(self):
-        self.dimension["newx"] = str(self.xsize)
-        self.dimension["newy"] = str(self.ysize)
-        self.dimension["newz"] = str(self.zsize)
+        self.dimension.update(
+            {"newx": str(self.xsize), "newy": str(self.ysize), "newz": str(self.zsize)}
+        )
 
-    def scale_model(self, factor):
-        self.facets = []
-        for facet in self.oldfacets:
-            nfacet = copy.deepcopy(facet)
-            for p in nfacet.points:
-                p.x *= factor
-                p.y *= factor
-                p.z *= factor
-            self.facets.append(nfacet)
+    def scale_model(self, factor: float):
+        self.facets = [copy.deepcopy(f) for f in self.oldfacets]
+        for facet in self.facets:
+            facet.points = tuple(
+                Point(p.x * factor, p.y * factor, p.z * factor) for p in facet.points
+            )
 
-    def change_direction(self, direction):
+    def change_direction(self, direction: str):
         for facet in self.facets:
             facet.change_direction(direction)
 
@@ -859,41 +638,32 @@ class CadModel:
         start = time.time()
         self.layers = []
         z = self.minz + self.height
-        lastz = self.minz
-        count = 0
+        lastz, count = self.minz, 0
 
-        no = (self.maxz - self.minz) / self.height
-        no = int(no)
+        no = int((self.maxz - self.minz) / self.height)
         self.queue.put(no)
-        while z > self.minz and z <= self.maxz:
+        while self.minz < z <= self.maxz:
             code, layer = self.create_one_layer(z)
 
             if code == LAYER:
                 count += 1
                 layer.id = count
                 self.layers.append(layer)
-
-                lastz = z
-                z += self.height
+                lastz, z = z, z + self.height
                 self.queue.put(count)
-                # print 'layer', count, '/', no
             elif code == ERROR:
                 break
             elif code == REDO:
-                z = z - self.height * 0.01
+                z -= self.height * 0.01
                 if z < lastz:
                     break
-                # print 'recreate layer'
             elif code == NOT_LAYER:
-                lastz = z
-                z += self.height
+                lastz, z = z, z + self.height
 
         self.queue.put("done")
-        # print 'no of layers:', len(self.layers)
-        cpu = "%.1f" % (time.time() - start)
-        # print 'slice cpu', cpu,'secs'
+        print(f"slice cpu {time.time() - start:.1f} secs")
 
-    def create_one_layer(self, z):
+    def create_one_layer(self, z: float) -> Tuple[int, Optional[Layer]]:
         layer = Layer(z, self.pitch)
         lines = []
         for facet in self.facets:
@@ -903,14 +673,9 @@ class CadModel:
             elif code == INTERSECTED:
                 lines.append(line)
 
-        if len(lines) != 0:
-            ok = layer.set_lines(lines)
-            if ok:
-                return (LAYER, layer)
-            else:
-                return (ERROR, None)
-        else:
-            return (NOT_LAYER, None)
+        if lines:
+            return (LAYER, layer) if layer.set_lines(lines) else (ERROR, None)
+        return (NOT_LAYER, None)
 
     def create_gl_model_list(self):
         self.model_list_id = 1000
@@ -919,24 +684,21 @@ class CadModel:
             glColor(1, 0, 0)
             glBegin(GL_TRIANGLES)
             for facet in self.facets:
-                normal = facet.normal
-                glNormal3f(normal.x, normal.y, normal.z)
+                glNormal3f(facet.normal.x, facet.normal.y, facet.normal.z)
                 for p in facet.points:
                     glVertex3f(p.x, p.y, p.z)
             glEnd()
         glEndList()
 
-    def create_gl_layer_list(self):
+    def create_gl_layer_list(self) -> int:
         assert self.sliced
-        layer = self.get_curr_layer()
-        return layer.create_gllist()
+        return self.get_curr_layer().create_gllist()
 
 
 class PathCanvas(glcanvas.GLCanvas):
-    def __init__(self, parent, cadmodel):
-        glcanvas.GLCanvas.__init__(self, parent, -1)
+    def __init__(self, parent, cadmodel: CadModel):
+        super().__init__(parent, -1)
         self.context = glcanvas.GLContext(self)
-
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_PAINT, self.OnPaint)
@@ -947,7 +709,6 @@ class PathCanvas(glcanvas.GLCanvas):
 
     def OnSize(self, event):
         wx.CallAfter(self.setup_viewport)
-        # self.Refresh()
         event.Skip()
 
     def setup_viewport(self):
@@ -956,7 +717,7 @@ class PathCanvas(glcanvas.GLCanvas):
         glViewport(0, 0, size.width, size.height)
 
     def OnPaint(self, event):
-        dc = wx.PaintDC(self)
+        wx.PaintDC(self)
         self.SetCurrent(self.context)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.show_path()
@@ -965,28 +726,16 @@ class PathCanvas(glcanvas.GLCanvas):
     def setup_projection(self):
         diameter = self.cadmodel.diameter
         size = self.GetClientSize()
-        w = size.width
-        h = size.height
-
+        w, h = size.width, size.height
         half = diameter / 2
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
 
+        factor = max(w, h) / min(w, h) if min(w, h) > 0 else 1.0
         if w <= h:
-            factor = float(h) / w
-            left = -half
-            right = half
-            bottom = -half * factor
-            top = half * factor
+            glOrtho(-half, half, -half * factor, half * factor, 0, diameter * 2)
         else:
-            factor = float(w) / h
-            left = -half * factor
-            right = half * factor
-            bottom = -half
-            top = half
-        near = 0
-        far = diameter * 2
-        glOrtho(left, right, bottom, top, near, far)
+            glOrtho(-half * factor, half * factor, -half, half, 0, diameter * 2)
 
     def show_path(self):
         if self.cadmodel.sliced:
@@ -994,22 +743,18 @@ class PathCanvas(glcanvas.GLCanvas):
             glMatrixMode(GL_MODELVIEW)
             glLoadIdentity()
             layer = self.cadmodel.get_curr_layer()
-            z = layer.z
-            glTranslatef(-self.cadmodel.xcenter, -self.cadmodel.ycenter, -z)
-            layer_id = self.cadmodel.create_gl_layer_list()
-            glCallList(layer_id)
+            glTranslatef(-self.cadmodel.xcenter, -self.cadmodel.ycenter, -layer.z)
+            glCallList(self.cadmodel.create_gl_layer_list())
 
 
 class ModelCanvas(glcanvas.GLCanvas):
-
-    def __init__(self, parent, cadmodel):
-        glcanvas.GLCanvas.__init__(self, parent, -1)
+    def __init__(self, parent, cadmodel: CadModel):
+        super().__init__(parent, -1)
         self.init = False
         self.cadmodel = cadmodel
         self.lastx = self.x = 30
         self.lasty = self.y = 30
-        self.xangle = 0
-        self.yangle = 0
+        self.xangle = self.yangle = 0
         self.context = glcanvas.GLContext(self)
 
         self.Bind(wx.EVT_ERASE_BACKGROUND, self.OnEraseBackground)
@@ -1020,10 +765,10 @@ class ModelCanvas(glcanvas.GLCanvas):
         self.Bind(wx.EVT_MOTION, self.OnMouseMotion)
 
     def OnEraseBackground(self, event):
-        pass  # Do nothing, to avoid flashing on MSW.
+        pass
 
     def OnPaint(self, event):
-        dc = wx.PaintDC(self)
+        wx.PaintDC(self)
         self.SetCurrent(self.context)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         self.show_model()
@@ -1032,28 +777,20 @@ class ModelCanvas(glcanvas.GLCanvas):
 
     def show_path(self):
         if self.cadmodel.sliced:
-            layer_id = self.cadmodel.create_gl_layer_list()
-            glCallList(layer_id)
+            glCallList(self.cadmodel.create_gl_layer_list())
 
     def show_model(self):
         if not self.cadmodel.loaded:
             return
-
-        # self.setup_gl_context()
         self.setup_projection()
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
-
         glTranslatef(0, 0, -self.cadmodel.diameter)
-        # Rotate model
         glRotatef(self.xangle, 1, 0, 0)
         glRotatef(self.yangle, 0, 1, 0)
-
-        # Move model to origin
         glTranslatef(
             -self.cadmodel.xcenter, -self.cadmodel.ycenter, -self.cadmodel.zcenter
         )
-
         glCallList(self.cadmodel.model_list_id)
 
     def OnMouseDown(self, evt):
@@ -1068,16 +805,13 @@ class ModelCanvas(glcanvas.GLCanvas):
         if evt.Dragging() and evt.LeftIsDown():
             self.lastx, self.lasty = self.x, self.y
             self.x, self.y = evt.GetPosition()
-
             self.xangle += self.y - self.lasty
             self.yangle += self.x - self.lastx
             self.Refresh(False)
 
     def create_model(self):
-        self.xangle = 0
-        self.yangle = 0
+        self.xangle = self.yangle = 0
         self.SetCurrent(self.context)
-
         if not self.init:
             self.setup_gl_context()
             self.init = True
@@ -1086,7 +820,6 @@ class ModelCanvas(glcanvas.GLCanvas):
 
     def OnSize(self, event):
         wx.CallAfter(self.setup_viewport)
-        # self.Refresh()
         event.Skip()
 
     def setup_viewport(self):
@@ -1097,62 +830,39 @@ class ModelCanvas(glcanvas.GLCanvas):
     def setup_projection(self):
         maxlen = self.cadmodel.diameter
         size = self.GetClientSize()
-        w = size.width
-        h = size.height
-
+        w, h = size.width, size.height
         half = maxlen / 2
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
 
+        factor = max(w, h) / min(w, h) if min(w, h) > 0 else 1.0
         if w <= h:
-            factor = float(h) / w
-            left = -half
-            right = half
-            bottom = -half * factor
-            top = half * factor
+            glOrtho(-half, half, -half * factor, half * factor, 0, maxlen * 4)
         else:
-            factor = float(w) / h
-            left = -half * factor
-            right = half * factor
-            bottom = -half
-            top = half
-        near = 0
-        far = maxlen * 4
-        glOrtho(left, right, bottom, top, near, far)
+            glOrtho(-half * factor, half * factor, -half, half, 0, maxlen * 4)
 
     def setup_gl_context(self):
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
-
-        ambient_light = [0.2, 0.2, 0.2, 1.0]
-        diffuse_light = [0.8, 0.8, 0.8, 1.0]
-        specular_light = [0.5, 0.5, 0.5, 1.0]
-        position = [-1.5, 1.0, -4.0, 1.0]
-        position = [-15.0, 30.0, -40.0, 1.0]
-
-        glLightfv(GL_LIGHT0, GL_AMBIENT, ambient_light)
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse_light)
-        glLightfv(GL_LIGHT0, GL_SPECULAR, specular_light)
-        glLightfv(GL_LIGHT0, GL_POSITION, position)
+        glLightfv(GL_LIGHT0, GL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, [0.8, 0.8, 0.8, 1.0])
+        glLightfv(GL_LIGHT0, GL_SPECULAR, [0.5, 0.5, 0.5, 1.0])
+        glLightfv(GL_LIGHT0, GL_POSITION, [-15.0, 30.0, -40.0, 1.0])
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
-
-        mcolor = [0.0, 0.0, 0.4, 1.0]
-        glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, mcolor)
+        glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, [0.0, 0.0, 0.4, 1.0])
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_CULL_FACE)
         glPolygonMode(GL_BACK, GL_LINE)
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE)
         glEnable(GL_COLOR_MATERIAL)
-        # args = (50,)
-        # glMaterial(GL_FRONT, GL_SHININESS, *args)#96)
 
 
 class DimensionPanel(wx.Panel):
     def __init__(self, parent):
-        wx.Panel.__init__(self, parent)
-        self.txt_fields = {}
+        super().__init__(parent)
+        self.txt_fields: Dict[str, wx.TextCtrl] = {}
         self.create_controls()
 
     def create_controls(self):
@@ -1160,78 +870,73 @@ class DimensionPanel(wx.Panel):
         sizer = wx.StaticBoxSizer(box, wx.HORIZONTAL)
         self.SetSizer(sizer)
 
-        label = "Original"
-        items = [("X", "oldx"), ("Y", "oldy"), ("Z", "oldz")]
-        s1 = self.create_dimension(label, items)
-        sizer.Add(s1, 1, wx.EXPAND | wx.ALL, 2)
+        sizer.Add(
+            self.create_dimension(
+                "Original", [("X", "oldx"), ("Y", "oldy"), ("Z", "oldz")]
+            ),
+            1,
+            wx.EXPAND | wx.ALL,
+            2,
+        )
+        sizer.Add(
+            self.create_dimension(
+                "Scaled", [("X", "newx"), ("Y", "newy"), ("Z", "newz")]
+            ),
+            1,
+            wx.EXPAND | wx.ALL,
+            2,
+        )
 
-        label = "Scaled"
-        items = [("X", "newx"), ("Y", "newy"), ("Z", "newz")]
-        s2 = self.create_dimension(label, items)
-        sizer.Add(s2, 1, wx.EXPAND | wx.ALL, 2)
-
-    def create_dimension(self, label, items):
+    def create_dimension(self, label: str, items: List[Tuple[str, str]]) -> wx.BoxSizer:
         sizer = wx.BoxSizer(wx.VERTICAL)
-        caption = wx.StaticText(self, label=label)
-        sizer.Add(caption, 0, wx.ALIGN_CENTER)
-
+        sizer.Add(wx.StaticText(self, label=label), 0, wx.ALIGN_CENTER)
         flex = wx.FlexGridSizer(rows=len(items), cols=2, hgap=2, vgap=2)
-        for label, key in items:
-            lbl_ctrl = wx.StaticText(self, label=label)
+        for lbl, key in items:
             txt_ctrl = wx.TextCtrl(self, size=(70, -1), style=wx.TE_READONLY)
-            flex.Add(lbl_ctrl)
+            flex.Add(wx.StaticText(self, label=lbl))
             flex.Add(txt_ctrl, 0, wx.EXPAND)
             self.txt_fields[key] = txt_ctrl
         sizer.Add(flex, 0, wx.EXPAND)
         flex.AddGrowableCol(1, 1)
         return sizer
 
-    def set_values(self, dimension):
-        for key in dimension:
-            self.txt_fields[key].SetValue(dimension[key])
+    def set_values(self, dimension: Dict[str, str]):
+        for key, value in dimension.items():
+            if key in self.txt_fields:
+                self.txt_fields[key].SetValue(value)
 
 
 class ControlPanel(wx.Panel):
     def __init__(self, parent):
-        wx.Panel.__init__(self, parent, -1)
+        super().__init__(parent, -1)
+        self.txt_fields: Dict[str, wx.TextCtrl] = {}
         self.create_controls()
 
     def create_controls(self):
         mainsizer = wx.BoxSizer(wx.VERTICAL)
-
         sizer = wx.BoxSizer(wx.VERTICAL)
         mainsizer.Add(sizer, 1, wx.ALL | wx.EXPAND, 10)
         self.SetSizer(mainsizer)
 
-        # Dimension panel
         self.dimensionPanel = DimensionPanel(self)
-        sizer.Add(self.dimensionPanel, 0)  # , wx.EXPAND|wx.ALIGN_CENTER)
-
-        # Slice info panel
+        sizer.Add(self.dimensionPanel, 0)
         sizer.Add((10, 10))
-        sliceSizer = self.create_slice_info()
-        sizer.Add(sliceSizer, 0, wx.EXPAND)
-
-        # image
+        sizer.Add(self.create_slice_info(), 0, wx.EXPAND)
         sizer.AddStretchSpacer()
-        # img = wx.Image('cat.jpg', wx.BITMAP_TYPE_ANY)
-        img = cat.getcatImage()
-        w = img.GetWidth()
-        h = img.GetHeight()
-        # XXX
-        factor = 1
-        img = img.Scale(w * factor, h * factor)
-        img = img.ConvertToGreyscale()
-        sb = wx.StaticBitmap(self, -1, wx.Bitmap(img), style=wx.RAISED_BORDER)
-        sizer.Add(sb, 0, wx.ALIGN_CENTER_HORIZONTAL)
 
-    def create_slice_info(self):
-        self.txt_fields = {}
+        img = cat.getcatImage()
+        img = img.Scale(img.GetWidth(), img.GetHeight()).ConvertToGreyscale()
+        sizer.Add(
+            wx.StaticBitmap(self, -1, wx.Bitmap(img), style=wx.RAISED_BORDER),
+            0,
+            wx.ALIGN_CENTER_HORIZONTAL,
+        )
+
+    def create_slice_info(self) -> wx.StaticBoxSizer:
         box = wx.StaticBox(self, -1, "Slice Info")
         sizer = wx.StaticBoxSizer(box, wx.VERTICAL)
-
         items = [
-            ("Layer hight", "height"),
+            ("Layer height", "height"),
             ("Pitch", "pitch"),
             ("Speed", "speed"),
             ("Direction", "direction"),
@@ -1239,37 +944,32 @@ class ControlPanel(wx.Panel):
             ("Current Layer", "currlayer"),
         ]
         flex = wx.FlexGridSizer(rows=len(items), cols=2, hgap=2, vgap=2)
-        for label, key in items:
-            lbl_ctrl = wx.StaticText(self, label=label)
+        for lbl, key in items:
             txt_ctrl = wx.TextCtrl(self, size=(70, -1), style=wx.TE_READONLY)
-            flex.Add(lbl_ctrl)
+            flex.Add(wx.StaticText(self, label=lbl))
             flex.Add(txt_ctrl, 0, wx.EXPAND)
             self.txt_fields[key] = txt_ctrl
         flex.AddGrowableCol(1, 1)
         sizer.Add(flex, 1, wx.EXPAND | wx.ALL, 2)
         return sizer
 
-    def set_dimension(self, dimension):
+    def set_dimension(self, dimension: Dict[str, str]):
         self.dimensionPanel.set_values(dimension)
 
-    def set_slice_info(self, info):
-        for key in self.txt_fields.keys():
-            txt = self.txt_fields[key]
-            value = info.get(key, "")
-            txt.SetValue(value)
+    def set_slice_info(self, info: Dict[str, str]):
+        for key, txt in self.txt_fields.items():
+            txt.SetValue(info.get(key, ""))
 
-    def set_num_layer(self, num_layers):
+    def set_num_layer(self, num_layers: int):
         self.txt_fields["nolayer"].SetValue(str(num_layers))
 
-    def set_curr_layer(self, curr_layer):
+    def set_curr_layer(self, curr_layer: int):
         self.txt_fields["currlayer"].SetValue(str(curr_layer))
 
 
 class BlackcatFrame(wx.Frame):
     def __init__(self):
-        wx.Frame.__init__(
-            self, None, -1, "Blackcat - STL CAD file slicer", size=(800, 600)
-        )
+        super().__init__(None, -1, "Blackcat - STL CAD file slicer", size=(800, 600))
         self.slice_parameter = {
             "height": "1.0",
             "pitch": "1.0",
@@ -1278,202 +978,181 @@ class BlackcatFrame(wx.Frame):
             "direction": "+Z",
             "scale": "1",
         }
+        self.cadmodel = CadModel()
         self.create_menubar()
         self.create_toolbar()
-        self.cadmodel = CadModel()
         self.statusbar = self.CreateStatusBar()
         self.create_panel()
         self.Centre()
 
     def create_toolbar(self):
-        self.ID_SLICE = 1001
-        self.ID_NEXT = 2000
-        self.ID_PREV = 2001
-
+        self.ID_SLICE, self.ID_NEXT, self.ID_PREV = 1001, 2000, 2001
         toolbar = self.CreateToolBar()
-        img_open = wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN)
-        img_save = wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE)
-        img_slice = wx.ArtProvider.GetBitmap(wx.ART_CDROM)
-        img_next = wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN)
-        img_prev = wx.ArtProvider.GetBitmap(wx.ART_GO_UP)
-        img_help = wx.ArtProvider.GetBitmap(wx.ART_HELP, client=wx.ART_TOOLBAR)
-        img_quit = wx.ArtProvider.GetBitmap(wx.ART_QUIT)
-
         toolbar.AddTool(
             wx.ID_OPEN,
-            label="open",
-            bitmap=img_open,
+            "open",
+            wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN),
             shortHelp="open file",
         )
         toolbar.AddTool(
             self.ID_SLICE,
-            label="slice",
-            bitmap=img_slice,
+            "slice",
+            wx.ArtProvider.GetBitmap(wx.ART_CDROM),
             shortHelp="slice modal",
         )
         toolbar.AddTool(
             wx.ID_SAVE,
-            label="save",
-            bitmap=img_save,
+            "save",
+            wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE),
             shortHelp="save slice info",
         )
         toolbar.AddTool(
-            self.ID_NEXT, label="next", bitmap=img_next, shortHelp="next layer"
+            self.ID_NEXT,
+            "next",
+            wx.ArtProvider.GetBitmap(wx.ART_GO_DOWN),
+            shortHelp="next layer",
         )
         toolbar.AddTool(
-            self.ID_PREV, label="prev", bitmap=img_prev, shortHelp="previous layer"
+            self.ID_PREV,
+            "prev",
+            wx.ArtProvider.GetBitmap(wx.ART_GO_UP),
+            shortHelp="previous layer",
         )
-        toolbar.AddTool(wx.ID_ABOUT, label="about", bitmap=img_help, shortHelp="about")
-        toolbar.AddTool(wx.ID_EXIT, label="quit", bitmap=img_quit, shortHelp="quit")
+        toolbar.AddTool(
+            wx.ID_ABOUT,
+            "about",
+            wx.ArtProvider.GetBitmap(wx.ART_HELP),
+            shortHelp="about",
+        )
+        toolbar.AddTool(
+            wx.ID_EXIT, "quit", wx.ArtProvider.GetBitmap(wx.ART_QUIT), shortHelp="quit"
+        )
         toolbar.Realize()
 
-        self.Bind(wx.EVT_TOOL, self.OnOpen, id=wx.ID_OPEN)
-        self.Bind(wx.EVT_TOOL, self.OnSave, id=wx.ID_SAVE)
-        self.Bind(wx.EVT_TOOL, self.OnSlice, id=self.ID_SLICE)
-        self.Bind(wx.EVT_TOOL, self.OnNextLayer, id=self.ID_NEXT)
-        self.Bind(wx.EVT_TOOL, self.OnPrevLayer, id=self.ID_PREV)
-        self.Bind(wx.EVT_TOOL, self.OnAbout, id=wx.ID_ABOUT)
-        self.Bind(wx.EVT_TOOL, self.OnQuit, id=wx.ID_EXIT)
+        for tid, handler in [
+            (wx.ID_OPEN, self.OnOpen),
+            (wx.ID_SAVE, self.OnSave),
+            (self.ID_SLICE, self.OnSlice),
+            (self.ID_NEXT, self.OnNextLayer),
+            (self.ID_PREV, self.OnPrevLayer),
+            (wx.ID_ABOUT, self.OnAbout),
+            (wx.ID_EXIT, self.OnQuit),
+        ]:
+            self.Bind(wx.EVT_TOOL, handler, id=tid)
 
     def OnNextLayer(self, event):
-        if not self.cadmodel.sliced:
-            return
-        self.cadmodel.next_layer()
-        self.left_panel.set_curr_layer(self.cadmodel.curr_layer + 1)
-        self.Refresh()
+        if self.cadmodel.sliced:
+            self.cadmodel.next_layer()
+            self.left_panel.set_curr_layer(self.cadmodel.curr_layer + 1)
+            self.Refresh()
 
     def OnPrevLayer(self, event):
-        if not self.cadmodel.sliced:
-            return
-
-        self.cadmodel.prev_layer()
-        self.left_panel.set_curr_layer(self.cadmodel.curr_layer + 1)
-        self.Refresh()
+        if self.cadmodel.sliced:
+            self.cadmodel.prev_layer()
+            self.left_panel.set_curr_layer(self.cadmodel.curr_layer + 1)
+            self.Refresh()
 
     def create_panel(self):
         self.left_panel = ControlPanel(self)
-
         self.sp = wx.SplitterWindow(self)
         self.model_panel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.path_panel = wx.Panel(self.sp, style=wx.SUNKEN_BORDER)
         self.path_panel.SetBackgroundColour("sky blue")
-        self.sp.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGED, self.OnPosChanging)
 
-        # Model canvas
         self.model_canvas = ModelCanvas(self.model_panel, self.cadmodel)
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.model_canvas, 1, wx.EXPAND)
-        self.model_panel.SetSizer(sizer)
+        msizer = wx.BoxSizer(wx.VERTICAL)
+        msizer.Add(self.model_canvas, 1, wx.EXPAND)
+        self.model_panel.SetSizer(msizer)
+
+        self.path_canvas = PathCanvas(self.path_panel, self.cadmodel)
+        psizer = wx.BoxSizer(wx.VERTICAL)
+        psizer.Add(self.path_canvas, 1, wx.EXPAND)
+        self.path_panel.SetSizer(psizer)
 
         box = wx.BoxSizer(wx.HORIZONTAL)
         box.Add(self.left_panel, 0, wx.EXPAND)
         box.Add(self.sp, 1, wx.EXPAND)
         self.SetSizer(box)
 
-        # Path canvas
-        self.path_canvas = PathCanvas(self.path_panel, self.cadmodel)
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.path_canvas, 1, wx.EXPAND)
-        self.path_panel.SetSizer(sizer)
-
         self.sp.Initialize(self.model_panel)
         self.sp.SplitVertically(self.model_panel, self.path_panel, 300)
-        self.sp.SetMinimumPaneSize(20)
-
-    def OnPosChanging(self, event):
-        self.Refresh(False)
 
     def create_menubar(self):
         menubar = wx.MenuBar()
-        for data in self.menu_data():
-            label = data[0]
-            items = data[1:]
-            menubar.Append(self.create_menu(items), label)
-        self.SetMenuBar(menubar)
+        file_menu = wx.Menu()
+        for label, status, handler, mid in [
+            ("&Open\tCtrl+o", "Open CAD file", self.OnOpen, wx.ID_OPEN),
+            ("S&lice\tCtrl+l", "Slice CAD model", self.OnSlice, -1),
+            ("&Save\tCtrl+s", "Save slice result", self.OnSave, wx.ID_SAVE),
+            ("", "", None, -1),
+            ("&Quit\tCtrl+q", "Quit", self.OnQuit, wx.ID_EXIT),
+        ]:
+            if not label:
+                file_menu.AppendSeparator()
+            else:
+                item = file_menu.Append(mid, label, status)
+                self.Bind(wx.EVT_MENU, handler, item)
+        menubar.Append(file_menu, "&File")
 
-    def menu_data(self):
-        return (
-            (
-                "&File",
-                ("&Open\tCtrl+o", "Open CAD file", self.OnOpen, wx.ID_OPEN),
-                ("S&lice\tCtrl+l", "Slice CAD model", self.OnSlice, -1),
-                (
-                    "&Save\tCtrl+s",
-                    "Save slice result as xml file",
-                    self.OnSave,
-                    wx.ID_SAVE,
-                ),
-                ("", "", "", ""),
-                ("&Quit\tCtrl+q", "Quit", self.OnQuit, wx.ID_EXIT),
-            ),
-            (
-                "Edit",
-                ("Next Layer\tpgdn", "next layer", self.OnNextLayer, -1),
-                ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer, -1),
-            ),
-            ("&Help", ("&About", "About this program", self.OnAbout, wx.ID_ABOUT)),
-        )
+        edit_menu = wx.Menu()
+        for label, status, handler in [
+            ("Next Layer\tpgdn", "next layer", self.OnNextLayer),
+            ("Prev Layer\tpgup", "previous layer", self.OnPrevLayer),
+        ]:
+            item = edit_menu.Append(-1, label, status)
+            self.Bind(wx.EVT_MENU, handler, item)
+        menubar.Append(edit_menu, "Edit")
+
+        help_menu = wx.Menu()
+        item = help_menu.Append(wx.ID_ABOUT, "&About", "About this program")
+        self.Bind(wx.EVT_MENU, self.OnAbout, item)
+        menubar.Append(help_menu, "&Help")
+        self.SetMenuBar(menubar)
 
     def OnSave(self, event):
         if not self.cadmodel.sliced:
             return
-
-        wildcard = "xml file (*.xml)|*.xml|All files (*.*)|*.*"
         dlg = wx.FileDialog(
             None,
-            "Save slice data as xml file",
+            "Save slice data",
             os.getcwd(),
-            self.cadname,
-            wildcard,
-            wx.SAVE,
+            getattr(self, "cadname", ""),
+            "xml file (*.xml)|*.xml|All files (*.*)|*.*",
+            wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT,
         )
         if dlg.ShowModal() == wx.ID_OK:
-            filename = dlg.GetPath()
-            root, ext = os.path.splitext(filename)
-            if ext.lower() != ".xml":
-                filename = filename + ".xml"
-            self.cadmodel.save(filename)
-            # print 'slicing info is saved in', filename
+            path = dlg.GetPath()
+            if not path.lower().endswith(".xml"):
+                path += ".xml"
+            self.cadmodel.save(path)
+        dlg.Destroy()
 
     def OnAbout(self, event):
-        info = wx.AboutDialogInfo()
-        info.Name = "Blackcat"
-        info.Version = "0.1"
-        info.Copyright = "(C) 2009"
-        info.Description = "Slice stl CAD model"
-        info.Developers = ["Zhigang Liu"]
-        info.License = "GPL2"
-        wx.AboutBox(info)
-
-    def create_menu(self, menu_data):
-        menu = wx.Menu()
-        for label, status, handler, id in menu_data:
-            if not label:
-                menu.AppendSeparator()
-                continue
-            menu_item = menu.Append(id, label, status)
-            self.Bind(wx.EVT_MENU, handler, menu_item)
-        return menu
+        info = wx.adv.AboutDialogInfo()
+        info.Name, info.Version, info.Copyright = "Blackcat", "0.2", "(C) 2009-2026"
+        info.Description = "Modernized STL CAD model slicer"
+        info.Developers, info.License = ["Zhigang Liu"], "GPL2"
+        wx.adv.AboutBox(info)
 
     def OnOpen(self, event):
-        wildcard = "CAD std files (*.stl)|*.stl|All files (*.*)|*.*"
         dlg = wx.FileDialog(
-            None, "Open CAD stl file", os.getcwd(), "", wildcard, wx.FD_OPEN
+            None,
+            "Open CAD stl file",
+            os.getcwd(),
+            "",
+            "STL files (*.stl)|*.stl|All files (*.*)|*.*",
+            wx.FD_OPEN,
         )
         if dlg.ShowModal() == wx.ID_OK:
             path = dlg.GetPath()
             self.statusbar.SetStatusText(path)
-            # print 'open', path
-            ok = self.cadmodel.open(path)
-            if ok:
+            if self.cadmodel.open(path):
                 self.model_canvas.create_model()
                 self.path_canvas.Refresh()
                 self.left_panel.set_dimension(self.cadmodel.dimension)
-                basename = os.path.basename(path)
-                root, ext = os.path.splitext(basename)
-                self.cadname = root
+                self.cadname = os.path.splitext(os.path.basename(path))[0]
             else:
-                wx.MessageBox("Cannot open " + path, "Error")
+                wx.MessageBox(f"Cannot open {path}", "Error")
         dlg.Destroy()
 
     def OnSlice(self, event):
@@ -1482,20 +1161,16 @@ class BlackcatFrame(wx.Frame):
             return
 
         dlg = ParaDialog(self, self.slice_parameter)
-        result = dlg.ShowModal()
-        if result == wx.ID_OK:
+        if dlg.ShowModal() == wx.ID_OK:
             dlg.get_values()
-            # print 'slicing...'
             self.cadmodel.queue = queue.Queue()
-            # threading.start_new_thread(self.cadmodel.slice, (self.slice_parameter,))
-            thread = threading.Thread(
+            threading.Thread(
                 target=self.cadmodel.slice, args=(self.slice_parameter,)
-            )
-            thread.start()
+            ).start()
             num_layers = self.cadmodel.queue.get()
             if num_layers > 0:
                 pdlg = wx.ProgressDialog(
-                    "Slicing in progress",
+                    "Slicing",
                     "Progress",
                     num_layers,
                     style=wx.PD_ELAPSED_TIME
@@ -1503,97 +1178,65 @@ class BlackcatFrame(wx.Frame):
                     | wx.PD_AUTO_HIDE
                     | wx.PD_APP_MODAL,
                 )
-
                 while True:
                     count = self.cadmodel.queue.get()
                     if count == "done":
-                        count = num_layers
-                        pdlg.Update(count)
+                        pdlg.Update(num_layers)
                         break
-                    else:
-                        pdlg.Update(count)
+                    pdlg.Update(count)
                 pdlg.Destroy()
 
             self.model_canvas.create_model()
             self.left_panel.set_dimension(self.cadmodel.dimension)
             self.left_panel.set_slice_info(self.slice_parameter)
             self.path_canvas.Refresh()
-
             if self.cadmodel.sliced:
                 self.left_panel.set_num_layer(len(self.cadmodel.layers))
                 self.left_panel.set_curr_layer(self.cadmodel.curr_layer + 1)
             else:
                 wx.MessageBox("no layers", "Warning")
-
         dlg.Destroy()
 
     def OnQuit(self, event):
         self.Close()
 
 
-class CharValidator(wx.PyValidator):
-    def __init__(self, data, key):
-        wx.PyValidator.__init__(self)
-        # self.Bind(wx.EVT_CHAR, self.OnChar)
-        self.data = data
-        self.key = key
+class CharValidator(wx.Validator):
+    def __init__(self, data: Dict[str, str], key: str):
+        super().__init__()
+        self.data, self.key = data, key
 
     def Clone(self):
         return CharValidator(self.data, self.key)
 
     def Validate(self, win):
-        text_ctrl = self.GetWindow()
-        text = text_ctrl.GetValue()
-        if len(text) == 0:
-            wx.MessageBox("This field must contain some text!", "Error")
-            text_ctrl.SetBackgroundColour("pink")
-            text_ctrl.SetFocus()
-            text_ctrl.Refresh()
+        ctrl = self.GetWindow()
+        val = ctrl.GetValue()
+        try:
+            if float(val) <= 0:
+                raise ValueError
+            ctrl.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
+            ctrl.Refresh()
+            return True
+        except ValueError:
+            wx.MessageBox("Must be a positive number", "Error")
+            ctrl.SetBackgroundColour("pink")
+            ctrl.SetFocus()
+            ctrl.Refresh()
             return False
-        else:
-            try:
-                value = float(text)
-            except ValueError:
-                wx.MessageBox("must be a number", "Error")
-                text_ctrl.SetBackgroundColour("pink")
-                text_ctrl.SetFocus()
-                text_ctrl.Refresh()
-                return False
-
-            if value <= 0:
-                wx.MessageBox("value <= 0!", "Error")
-                text_ctrl.SetBackgroundColour("pink")
-                text_ctrl.SetFocus()
-                text_ctrl.Refresh()
-                return False
-
-        # text_ctrl.SetBackgroundColour(wx.SystemSettings_GetColour(wx.SYS_COLOUR_WINDOW))
-        text_ctrl.Refresh()
-        return True
 
     def TransferToWindow(self):
-        text_ctrl = self.GetWindow()
-        value = self.data.get(self.key, "")
-        text_ctrl.SetValue(value)
+        self.GetWindow().SetValue(self.data.get(self.key, ""))
         return True
 
     def TransferFromWindow(self):
-        text_ctrl = self.GetWindow()
-        self.data[self.key] = text_ctrl.GetValue()
+        self.data[self.key] = self.GetWindow().GetValue()
         return True
-
-    def OnChar(self, event):
-        code = event.GetKeyCode()
-        if code < 256:
-            key = chr(code)
-            if key in string.letters:
-                return
-        event.Skip()
 
 
 class SlicePanel(wx.Panel):
-    def __init__(self, parent, data):
-        wx.Panel.__init__(self, parent, -1)
+    def __init__(self, parent, data: Dict[str, str]):
+        super().__init__(parent, -1)
         self.data = data
         self.create_controls()
 
@@ -1604,48 +1247,51 @@ class SlicePanel(wx.Panel):
             ("Scanning speed", "20", "speed"),
             ("Fast speed", "20", "fast"),
         ]
-
-        outsizer = wx.BoxSizer(wx.VERTICAL)
         sizer = wx.BoxSizer(wx.VERTICAL)
-        outsizer.Add(sizer, 0, wx.ALL, 10)
         box = wx.FlexGridSizer(rows=6, cols=2, hgap=5, vgap=5)
-        for label, dvalue, key in labels:
-            lbl = wx.StaticText(self, label=label)
-            box.Add(lbl, 0, 0)
-            txt = wx.TextCtrl(
-                self, -1, dvalue, size=(80, -1), validator=CharValidator(self.data, key)
+        for label, dval, key in labels:
+            box.Add(wx.StaticText(self, label=label))
+            box.Add(
+                wx.TextCtrl(
+                    self,
+                    -1,
+                    dval,
+                    size=(80, -1),
+                    validator=CharValidator(self.data, key),
+                )
             )
-            box.Add(txt, 0, 0)
-        sizer.Add(box, 0, 0)
 
-        # slice direction
-        lbl = wx.StaticText(self, label="Slice direction")
-        box.Add(lbl, 0, 0)
-
-        self.dir_list = ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
-        self.dir_choice = wx.Choice(self, -1, (160, -1), choices=self.dir_list)
+        box.Add(wx.StaticText(self, label="Slice direction"))
+        self.dir_choice = wx.Choice(
+            self, -1, choices=["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
+        )
         self.dir_choice.SetStringSelection(self.data["direction"])
         box.Add(self.dir_choice, 0, wx.EXPAND)
 
-        # scale
-        lbl = wx.StaticText(self, label="Scale factor")
-        box.Add(lbl, 0, 0)
-        scale_txt = wx.TextCtrl(
-            self, -1, "1", size=(80, -1), validator=CharValidator(self.data, "scale")
+        box.Add(wx.StaticText(self, label="Scale factor"))
+        box.Add(
+            wx.TextCtrl(
+                self,
+                -1,
+                "1",
+                size=(80, -1),
+                validator=CharValidator(self.data, "scale"),
+            ),
+            0,
+            wx.EXPAND,
         )
-        box.Add(scale_txt, 0, wx.EXPAND)
-        self.SetSizer(outsizer)
+        sizer.Add(box, 0, wx.ALL, 10)
+        self.SetSizer(sizer)
 
-    def get_direction(self):
+    def get_direction(self) -> str:
         return self.dir_choice.GetStringSelection()
 
 
 class ParaDialog(wx.Dialog):
-    def __init__(self, parent, slice_parameter):
+    def __init__(self, parent, slice_parameter: Dict[str, str]):
         self.slice_parameter = slice_parameter
-        wx.Dialog.__init__(self)
+        super().__init__(parent, -1, "Slice parameters")
         self.SetExtraStyle(wx.WS_EX_VALIDATE_RECURSIVELY)
-        self.Create(parent, -1, "Slice parameters")
         self.create_controls()
 
     def create_controls(self):
@@ -1654,18 +1300,13 @@ class ParaDialog(wx.Dialog):
         sizer.Add(self.panel, 0, 0)
         sizer.Add(wx.StaticLine(self), 0, wx.EXPAND | wx.TOP | wx.BOTTOM, 5)
 
-        #
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        btn_sizer.Add((10, 10), 1)
+        btn_sizer = wx.StdDialogButtonSizer()
         ok_btn = wx.Button(self, wx.ID_OK)
         ok_btn.SetDefault()
-        cancel_btn = wx.Button(self, wx.ID_CANCEL, "Cancel")
-        btn_sizer.Add(ok_btn)
-        btn_sizer.Add((10, 10), 1)
-        btn_sizer.Add(cancel_btn)
-        btn_sizer.Add((10, 10), 1)
+        btn_sizer.AddButton(ok_btn)
+        btn_sizer.AddButton(wx.Button(self, wx.ID_CANCEL))
+        btn_sizer.Realize()
         sizer.Add(btn_sizer, 0, wx.EXPAND | wx.ALL, 10)
-
         self.SetSizer(sizer)
         self.Fit()
 
@@ -1674,9 +1315,6 @@ class ParaDialog(wx.Dialog):
 
 
 class BlackcatApp(wx.App):
-    def __init__(self, redirect=False, filename=None):
-        wx.App.__init__(self, redirect, filename)
-
     def OnInit(self):
         self.frame = BlackcatFrame()
         self.frame.Show()
